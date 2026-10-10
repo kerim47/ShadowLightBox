@@ -2,7 +2,7 @@
 
 **English** | [Türkçe](README.tr.md)
 
-> **AI agents / geliştiriciler:** start with [`AGENTS.md`](AGENTS.md); [`docs/README.md`](docs/README.md) maps every other doc (architecture, design rules, known issues, per-module APIs).
+> **AI agents / geliştiriciler:** start with [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md); [`docs/README.md`](docs/README.md) maps every other doc (architecture, design rules, known issues, per-module APIs).
 
 Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the silhouette out of the photo, designs a lamp body (square, rectangle, cylinder, hexagon, star, flower, heart…) with the light in the middle, and computes the wall cutouts so that when the lamp is on, the silhouette appears on the wall as if drawn there. The result is **one model file** (STL, 3MF, OBJ, FBX, PLY or GLB), ready to print. No SVG step is needed. The interface is in Turkish.
 
@@ -275,7 +275,8 @@ ShadowLightBox/
 │   ├── DESIGN_RULES.md     Coding rules and change checklist
 │   ├── KNOWN_ISSUES.md     Open bugs and technical debt
 │   └── modules/            Per-module API docs
-├── AGENTS.md               Guide for AI coding agents
+├── */CLAUDE.md             Directory guides for AI agents (renderer, renderer/src, electron, tests)
+├── AGENTS.md / CLAUDE.md   Guide for AI coding agents
 ├── README.md               This file (English, default)
 └── README.tr.md            Turkish version
 ```

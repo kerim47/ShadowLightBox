@@ -236,4 +236,4 @@ Plain Node: it loads the core modules on `globalThis` and `THREE` from `node_mod
 - the converter core: floating parts bridged, thin lines thickened, closed contours, SVG output;
 - export: light-part separation, welded parts closed by index, and all six formats read back with equal triangle counts.
 
-Extend it whenever you touch `wall_field.js`, `shell_mesher.js`, `exporters.js` or `stencil.js`. Details: the header comment of `tests/run-tests.js`.
+Extend it whenever you touch `wall_field.js`, `shell_mesher.js`, `exporters.js` or `stencil.js`. Details: `tests/CLAUDE.md`.

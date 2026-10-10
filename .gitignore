@@ -5,6 +5,10 @@ build/
 .DS_Store
 Thumbs.db
 
+# Claude Code workspace
+.claude/
+claude_conversation_id.md
+
 # Lamp exports
 *.stl
 *.3mf
