@@ -1,7 +1,7 @@
 # Shadow Box Designer — Gölge Lambası Tasarımcısı
 
-> **Türkçe özet:** Fotoğraftan duvara asılan gölge lambası tasarlayan masaüstü uygulaması. Fotoğraf yüklersiniz; uygulama silueti (veya yüz hatlarını) çıkarır, lambanın duvarlarına ışığın geçeceği kesimleri hesaplar ve 3D yazıcıya hazır **tek bir STL** verir. "Yazıcı Tablası" görünümünde modeli tablada, "Karanlık Oda" görünümünde gölgeyi duvarda görürsünüz. Çalıştırma: `npm install` → `npm start`. Test: `npm test`.
->
+**English** | [Türkçe](README.tr.md)
+
 > **AI agents / geliştiriciler:** start with [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md); [`docs/README.md`](docs/README.md) maps every other doc (architecture, design rules, known issues, per-module APIs).
 
 Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the silhouette out of the photo, designs a lamp body (square, rectangle, cylinder, hexagon, star, flower, heart…) with the light in the middle, and computes the wall cutouts so that when the lamp is on, the silhouette appears on the wall as if drawn there. The result is **one model file** (STL, 3MF, OBJ, FBX, PLY or GLB), ready to print. No SVG step is needed. The interface is in Turkish.
@@ -151,6 +151,7 @@ The **Siluet Editörü** workspace (top bar) is a separate full-screen painting 
 - **Dark room light and wall:** the room toolbar has the LED colour and a light-intensity slider (also under **Karanlık Oda**: LED rengi, Işık şiddeti 10–300 %, Duvar rengi). **Aydınlanan duvar genişliği** (default 240 cm) sets how much of the wall is simulated, so light outside the shadow area is shown too. Preview only; the print does not change.
 - **Gerçek gölge** (dark room toolbar) renders the wall shadow from the actual 3D geometry with a point-light shadow map, instead of the simulation. Toggle it to compare. A loaded model casts its shadow too.
 
+## Body and print options
 
 **Light mount** (Baskı Ayarları → Işık montajı):
 - **Transparent tube (default).** The base plate has a holder ring for an off-the-shelf acrylic tube. The cap plugs *into* the tube top, and the LED hangs from a short post below it, facing the wall. The LED is the lowest point of the cap, so nothing opaque blocks the near-horizontal rays that reach the far wall. The wall only rises where the silhouette is, so the front rim, cap and support ribs aren't needed, and the shadow has no rib lines. The silhouette should surround the lamp so every wall piece reaches the base. The app reports the tube length to cut.
@@ -165,7 +166,6 @@ The **Siluet Editörü** workspace (top bar) is a separate full-screen painting 
   - Overhangs steeper than 60° and unsupported spans longer than 12 mm get a small roof underneath, so the body prints without supports.
   - The roofs are magnified on the wall: a large lit area far from the lamp gets saw-tooth edges (the sample design drops from 99 % to 81 % shadow match). Use it only for compact silhouettes.
   - Short bridges are left as they are.
-  - Adjacent roofs are merged so the shadow doesn't get saw-teeth.
 - **Printability fixes:**
   - **Support ribs** keep the front rim attached to the base. Each rib only runs from the rim to the nearest solid part, placed where your silhouette already casts shadow.
   - **Loose parts** (e.g. a head above a thin neck) are tied on with a thin bridge instead of being dropped.
@@ -180,21 +180,12 @@ Use a **small single-chip LED**: 1–3 W, emitter ≤ 3 mm, warm white, ≥ 120�
 
 Shadow edges blur in proportion to the emitter size, so bulbs (E14/E27) and large COB discs give soft, mushy silhouettes.
 
-## Tabs
-
-- **3B Önizleme**: a dark room with the lamp on the wall, the LED glowing inside and the silhouette cast on the wall. You can switch the lamp off to see the body in daylight; the front is open so you can look inside. Print settings and STL export are here too.
-- **Gölge Tasarımı**: the silhouette (retouch it with the brush), the simulated shadow, shadow size and support-rib settings, and the unrolled wall strip.
-
-## Shared geometry panel
-
-Body shape and its size, depth `d`, `Light z%` and taper are shared between both tabs; change one and both views update. Everything is in centimetres; STL output is in millimetres.
-
 ## Saving and opening designs
 
 - **Save** writes to the current file (becomes "Save As" if no current file is set).
 - **Save As…** prompts for a name and writes to `%APPDATA%\shadowbox-designer\designs\<name>.json`.
 - **Open…** lists every saved design with a delete button per row.
-- **Reveal folder** opens the data directory in Explorer.
+- **Reveal folder** opens the data directory in your file manager.
 
 A green "Saved" toast confirms successful writes for 5 seconds.
 
@@ -286,7 +277,8 @@ ShadowLightBox/
 │   └── modules/            Per-module API docs
 ├── */CLAUDE.md             Directory guides for AI agents (renderer, renderer/src, electron, tests)
 ├── AGENTS.md / CLAUDE.md   Guide for AI coding agents
-└── README.md
+├── README.md               This file (English, default)
+└── README.tr.md            Turkish version
 ```
 
 ## Print notes
