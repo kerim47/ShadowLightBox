@@ -123,7 +123,7 @@ docs/modules/*.md        Per-module API, state, callers, extension recipes
   - The printer can't print lines much thinner than about 0.8 mm (2 × 0.4 mm nozzle). So the finest printable shadow detail is about `0.8 mm · ρ / r`; it gets coarse at the shadow edge.
   - Bigger body or smaller shadow means more detail. `main.js` → `detailLimitHtml()` and `optimizeDetail()` use this.
 - **Penumbra:** blur ≈ `D · z_cut / (cz − z_cut)`, where `D` is the LED emitter size. Recommend single-chip LEDs (≤ 3 mm emitter), not bulbs.
-- **Support-free upright printing** (`supportFree`):
+- **Support-free upright printing** (`supportFree`, off by default; the default is upright with slicer supports):
   - Overhangs up to 60° from vertical, bridges up to 12 mm between two anchors, and cantilevers up to 2.5 mm print without supports.
   - Longer unsupported runs get a roof at the angle limit. This is checked on a raster with `Δz = Δs / tan(angle)`.
   - Roofs alter the shadow, so for very detailed art, flat panels + 0.2 mm layer (no roofs, no bridges) are usually better. The optimizer compares these options.

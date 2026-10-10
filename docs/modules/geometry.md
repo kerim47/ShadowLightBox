@@ -24,7 +24,7 @@ geo.setCompareModel(THREE.Group | null); geo.setCompareOptions(o); geo.compareSt
 ## Scenes
 
 - **Bed:** `bedSpace` rotated so lamp `z` is world up; meshes scaled 0.1 (mm → cm). White material, floating parts red. Shadow mask plane `2R × 2R` under the bed; red dimension lines, green axes, bed plate with 20 mm grid (red edge if the body doesn't fit). Light parts (`/^(cap|led-|tube-cap|tube-holder)/`) hidden unless "Montaj parçaları".
-- **Room:** lamp coordinates = world (wall `z = 0`). Wall plane + shadow texture plane (`2·wallR`), floor, point light at `(0, 0, cz)` with glow sprite and bulb. Light off → daylight lighting. Real shadow → PCF soft shadow map, `autoUpdate = false`, `dirtyShadow()` on change, distance decay off.
+- **Room:** lamp coordinates = world (wall `z = 0`). Wall plane + shadow texture plane (`2·wallR`), floor, point light at `(0, 0, cz)` with glow sprite and bulb. Light parts (`/^(cap|led-|tube-)/`: front cap, LED holder, tube, tube holder) are never drawn here, so only the printed body and the light show and the front stays open; hidden meshes cast no shadow in "Gerçek gölge" either (they sit in front of or below the LED, so the wall shadow is unchanged). Light off → daylight lighting. Real shadow → PCF soft shadow map, `autoUpdate = false`, `dirtyShadow()` on change, distance decay off.
 - `applyLook(opts)`: LED colour/intensity, glow size, wall colours (the lit-wall material uses `convertSRGBToLinear()` + `toneMapped: false` so it matches the texture's dark exactly), shadow plane size, wall/floor scale (`wallR·10`), fog distance, floor height.
 
 ## Camera

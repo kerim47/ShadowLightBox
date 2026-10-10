@@ -4,6 +4,14 @@
   "description": "Photo → shadow lamp designer (Electron desktop app)",
   "author": "Abdülkerim Akan <kerimakan77@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kerim47/ShadowLightBox.git"
+  },
+  "homepage": "https://github.com/kerim47/ShadowLightBox#readme",
+  "bugs": {
+    "url": "https://github.com/kerim47/ShadowLightBox/issues"
+  },
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron . --no-sandbox",

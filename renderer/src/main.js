@@ -55,8 +55,8 @@
       { id: 'g-holder', label: 'Tüp tutucu yüksekliği', unit: 'mm', min: 4, max: 30, step: 1, value: 10, showIf: () => mount() === 'tube' },
       { id: 'g-mode', type: 'select', label: 'Baskı şekli', value: 'onepiece', options: [
         ['onepiece', 'Tek parça (gövde + taban dik basılır)'], ['flat', 'Düz paneller (basıp yapıştırılır)']] },
-      { id: 'g-supportfree', type: 'check', label: 'Desteksiz baskı (sarkan yerlerin altına 45° çatı)', value: true, showIf: () => $('g-mode').value === 'onepiece',
-        note: 'Dik basılan gövdede havaya basılacak yatay çıkıntı kalmaz; gölgede çok küçük üçgen dolgular oluşabilir.' },
+      { id: 'g-supportfree', type: 'check', label: 'Desteksiz baskı (sarkan yerlerin altına 45° çatı)', value: false, showIf: () => $('g-mode').value === 'onepiece',
+        note: 'Kapalıyken (varsayılan) gölge siluete birebir uyar; gövdeyi dilimleyicide destek açarak basın, destekler sonra sökülür. Açıkken dik basılan gövdede havaya basılacak yatay çıkıntı kalmaz, ama sarkan yerlerin altına eklenen çatılar duvarda büyür ve gölgenin uzak kenarında testere dişi gibi görünebilir.' },
       { id: 'g-chamfer', type: 'check', label: 'Panel kenarları 45° pahlı (köşeler temiz birleşir)', value: true, showIf: () => $('g-mode').value === 'flat' },
       { id: 'g-layer', type: 'check', label: '0,2 mm destek katmanı (kopuk parçaları köprüsüz tutar)', value: false, showIf: () => $('g-mode').value === 'flat' },
       { id: 'g-thickness', label: 'Duvar kalınlığı', unit: 'mm', min: 0.8, max: 5, step: 0.1, value: 1.6 },

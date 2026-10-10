@@ -18,6 +18,7 @@ Each entry: symptom, cause, location, suggested fix. Remove an entry when you fi
 - **Symptom:** a wide lit shape far out (crescent at ρ ≈ 45 cm on a 15 cm cylinder) gets dark spikes along its outer edge.
 - **Cause:** physics, not a bug. A ~1 mm rim above the hole spans tens of cm and can't print upright without roofs; near the light the roofs are magnified ~50×.
 - **Where:** `wall_field.js` support-free pass.
+- **Mitigation:** `g-supportfree` is off by default (print upright with slicer supports); the sample `zoro.json` scores 99 % instead of 81 %.
 - **Possible improvement:** detect this case and warn ("Desteksiz baskı bu tasarımda uzak kenarları bozuyor"), or suggest slicer supports / a larger body. The optimizer already compares print modes.
 
 ## Performance
@@ -52,7 +53,8 @@ They differ slightly (periodic in s, return shape). Merging needs care: `stencil
 
 - `ModelExport.isLightPart`: `/^(cap|led-|tube-cap|tube-holder)/` (export dialog).
 - `geometry.js` bed view `isCap`: same set (hidden behind "Montaj parçaları").
-- `geometry.js` room view `isCap` and `compareStats`: `/^(cap|led-|tube-cap)/` (no `tube-holder`, on purpose: the holder sits on the base plate in the room view).
+- `geometry.js` room view `isCap`: `/^(cap|led-|tube-)/` (all light parts incl. the glass tube; hidden in the room).
+- `geometry.js` `compareStats`: `/^(cap|led-|tube-cap)/` (no `tube-holder`, on purpose: the holder sits on the base plate).
 - **Fix:** use `ModelExport.isLightPart` for the bed view; give the room/compare variant its own named helper with a comment.
 
 ## Coverage

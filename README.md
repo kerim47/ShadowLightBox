@@ -4,9 +4,72 @@
 >
 > **AI agents / geliştiriciler:** start with [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md); [`docs/README.md`](docs/README.md) maps every other doc (architecture, design rules, known issues, per-module APIs).
 
-Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the silhouette out of the photo, designs a lamp body (square, rectangle, cylinder, hexagon, star, flower, heart…) with the light in the middle, and computes the wall cutouts so that when the lamp is on, the silhouette appears on the wall as if drawn there. The result is **one STL file**, ready to print. No SVG step is needed. The interface is in Turkish.
+Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the silhouette out of the photo, designs a lamp body (square, rectangle, cylinder, hexagon, star, flower, heart…) with the light in the middle, and computes the wall cutouts so that when the lamp is on, the silhouette appears on the wall as if drawn there. The result is **one model file** (STL, 3MF, OBJ, FBX, PLY or GLB), ready to print. No SVG step is needed. The interface is in Turkish.
 
-![Portrait shadow in the dark-room view](screenshots/02-dark-room-shadow.png)
+![The lamp switched on in the dark-room view: the silhouette appears on the wall](screenshots/02-dark-room-shadow.png)
+
+**Contents:** [Features](#features) · [Download and install](#download-and-install) · [Quick start](#quick-start-5-minutes) · [Printing your lamp](#printing-your-lamp) · [Screenshots](#screenshots) · [Workflow in detail](#workflow) · [Troubleshooting](#troubleshooting) · [Project layout](#project-layout) · [Licence](#author-and-licence)
+
+## Features
+
+- **Photo → silhouette** in one click: quick (plain background), AI background removal, or a detailed portrait that keeps hair, eyes and beard.
+- **Any body shape:** square, rectangle, rounded rectangle, cylinder, polygon, star, flower, heart; with taper and adjustable depth.
+- **What you see is what you print:** the dark-room preview, the wall strip and the accuracy score all use the exact geometry that gets exported.
+- **Shadow match score (Gölge uyumu)** tells you how close the real shadow will be to your silhouette, and **Detay için iyileştir** tunes size, detail level and print mode for you.
+- **Print-ready meshes:** watertight, nothing floating, fits your printer bed (warns if not); one-piece upright print or flat glued panels.
+- **Built-in silhouette editor** (brushes, shapes, text, layers, symmetry, undo) and an **image converter** for logos and drawings.
+- **Exports** STL, 3MF, OBJ, FBX, PLY, GLB, plus SVG/PNG from the converter.
+
+## Download and install
+
+You need **[Node.js](https://nodejs.org/) 20 LTS or newer** and **Git** (or just download the ZIP). Works on Linux, Windows and macOS.
+
+```bash
+git clone https://github.com/kerim47/ShadowLightBox.git
+cd ShadowLightBox
+npm install
+npm start
+```
+
+No Git? Click **Code → Download ZIP** on GitHub, unzip it, open a terminal in that folder and run `npm install` then `npm start`.
+
+Want an installer instead? `npm run build:win`, `npm run build:mac` or `npm run build:linux` writes one into `dist/`.
+
+If `npm start` fails, see [Troubleshooting](#troubleshooting).
+
+## Quick start (5 minutes)
+
+1. **Open the sample.** On first launch a sample design is copied into your designs folder: **Dosya → Aç…** → `zoro`. (Or drag [`electron/samples/zoro.json`](electron/samples/zoro.json) onto the window.)
+2. **Look at it.** Switch between **Yazıcı Tablası** (printer bed, `Alt+1`) and **Karanlık Oda** (dark room, `Alt+2`). In the dark room the toolbar's **Ön** button shows the wall straight on.
+3. **Use your own photo.** **Fotoğraf yükle…** in the Inspector (or drag a photo onto the window), pick a method, place the silhouette, click **Yerleştirmeyi uygula**.
+4. **Check the score.** Aim for a green **Gölge uyumu** (≥ 90 %). If it is low, click **Detay için iyileştir**.
+5. **Download.** Choose the format next to the download button and click **İndir** (`Ctrl+E`). Files go to your **Downloads** folder.
+
+## Printing your lamp
+
+| Setting | Default | What to do |
+|---|---|---|
+| Baskı şekli (print mode) | Tek parça (one piece, upright) | Print upright with **supports enabled in your slicer** (Cura / PrusaSlicer / Bambu Studio; *tree* supports are easiest to remove). |
+| Desteksiz baskı (support-free) | **Off** | Turn on only for compact silhouettes. It adds small roofs under overhangs; far from the lamp they show as saw teeth on the wall. |
+| Düz paneller (flat panels) | – | For polygon bodies: each side prints flat without supports, then you glue them. Good for very fine detail. |
+| Duvar kalınlığı (wall) | 1.6 mm | Thicker is sturdier; the minimum is 0.8 mm. |
+| Tabla X / Y / Z | 256 mm | Set your printer's build volume; the bed view warns if the body doesn't fit. |
+
+- **Material:** opaque, dark PLA or PETG works best (white or translucent filament lets light through the walls).
+- **Light:** a small single-chip LED (1–3 W, warm white, ≥ 120°), see [Which light?](#which-light). Bulbs give blurry shadows.
+- **Light parts** (front cap / LED holder, tube holder) are hidden in the previews and left out of downloads by default. Show them on the bed with **Montaj parçaları** and include them in the download dialog if you want to print them too.
+- **Mounting:** the base plate goes against the wall; hang it on a screw through the keyhole. The picture appears on the wall around the lamp, **Gölge boyutu** sets its half-width.
+
+## Screenshots
+
+All taken with the bundled `zoro.json` sample and default settings.
+
+| | |
+|---|---|
+| ![Dark room, front view](screenshots/02-dark-room-shadow.png) | ![Open lamp body with the LED inside](screenshots/05-open-lamp.png) |
+| **Karanlık Oda:** shadow on the wall, 99 % match | **Open front:** only the printed body and the light |
+| ![Printer bed](screenshots/03-print-bed.png) | ![Silhouette editor](screenshots/04-silhouette-editor.png) |
+| **Yazıcı Tablası:** body on the bed with dimensions | **Siluet Editörü:** retouch the silhouette |
 
 ## Workflow
 
@@ -33,7 +96,7 @@ Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the
 - **File picker:** on the desktop app every "open file" uses an in-app picker (places, folders, filter, image preview, keyboard). The system GTK dialog crashed Electron on Linux (`GLib-GObject … no handler with id` → SIGTRAP), so it is never opened.
 - **One view.** Every setting is always visible in the Inspector (no simple/advanced mode); sections are collapsible and searchable (`Ctrl+P`).
 - **Printer bed:** Baskı Ayarları starts with **Tabla genişliği (X)**, **Tabla derinliği (Y)** and **Baskı yüksekliği (Z)**. The bed view draws that rectangle and warns when the body doesn't fit (either orientation). Old designs with a single bed size open as a square bed.
-- The small LED cap parts are hidden on the bed by default (toolbar **LED kapağı** shows them); they are still in the STL and always visible in the dark room.
+- The light parts (front cap, LED holder, tube holder) are hidden by default: the bed shows only the lamp body (toolbar **Montaj parçaları** shows them) and the dark room shows just the printed body and the light itself, with the front left open. They are left out of downloads unless you include them.
 - **Detail pipeline.** Silhouettes are processed at 2048 px. Small parts such as letters, twig tips and gaps between fingers are kept, and edges stay anti-aliased, so the wall grid resolves sub-pixel edges. Detail levels go up to "Çok yüksek" (≈650k cells).
 - **Gölge uyumu.** Shows how well the shadow the lamp will actually cast matches the silhouette (IoU), plus lost detail, extra shadow, and the finest printable detail near the lamp and at the shadow edge.
   - Why there is a limit: a feature on the wall shrinks by t = ρ/r on the lamp wall, and the printer can't print lines much thinner than ~0.8 mm.
@@ -97,8 +160,10 @@ The **Siluet Editörü** workspace (top bar) is a separate full-screen painting 
 - **One-piece mode** (default). The wall and the base plate form a single body, printed upright. The base plate has a keyhole for hanging on a screw. The front **cap** is a separate object in the same STL and is printed flat. It holds the LED facing the wall at the "Light z" position, with a cable hole through the centre.
 - **Flat-panel mode** (polygonal shapes only). One flat panel per side, plus the plate and cap, laid out on the bed. Panels print without supports; glue them together afterwards. Panel ends are chamfered at 45° by default, so the corners close cleanly. An optional 0.2 mm support layer under each panel holds loose parts without bridges.
 - The wall is meshed with marching squares into a **watertight** solid with smooth cutout edges (≈0.5–1 mm grid, finer where the image is magnified most).
-- **Support-free upright printing** (one-piece mode, on by default):
+- **Printing with supports** (one-piece mode, default): the shadow matches the silhouette exactly. The body prints upright, so **turn on supports in your slicer** (Cura, PrusaSlicer, Bambu Studio: "tree" supports work well); peel them off after printing.
+- **Support-free upright printing** (option *Desteksiz baskı*, off by default):
   - Overhangs steeper than 60° and unsupported spans longer than 12 mm get a small roof underneath, so the body prints without supports.
+  - The roofs are magnified on the wall: a large lit area far from the lamp gets saw-tooth edges (the sample design drops from 99 % to 81 % shadow match). Use it only for compact silhouettes.
   - Short bridges are left as they are.
   - Adjacent roofs are merged so the shadow doesn't get saw-teeth.
 - **Printability fixes:**
@@ -117,7 +182,7 @@ Shadow edges blur in proportion to the emitter size, so bulbs (E14/E27) and larg
 
 ## Tabs
 
-- **3B Önizleme**: a dark room with the lamp on the wall, the LED glowing inside and the silhouette cast on the wall. You can switch the lamp off to see the body in daylight, or hide the cap to look inside. Print settings and STL export are here too.
+- **3B Önizleme**: a dark room with the lamp on the wall, the LED glowing inside and the silhouette cast on the wall. You can switch the lamp off to see the body in daylight; the front is open so you can look inside. Print settings and STL export are here too.
 - **Gölge Tasarımı**: the silhouette (retouch it with the brush), the simulated shadow, shadow size and support-rib settings, and the unrolled wall strip.
 
 ## Shared geometry panel
@@ -146,11 +211,7 @@ A green "Saved" toast confirms successful writes for 5 seconds.
 
 Designs saved by the older box-only version (format v1, e.g. `zoro.json`) open as a rectangular body.
 
-## Try it with the sample
-
-The screenshots above were taken with the bundled sample design [`electron/samples/zoro.json`](electron/samples/zoro.json). To reproduce them, start the app and either open `zoro` from **Dosya → Aç…** (it is copied into the designs folder on first launch) or drag the JSON file onto the window. Then switch between **Yazıcı Tablası** / **Karanlık Oda** (`Alt+1` / `Alt+2`) and the **Siluet Editörü** (`Ctrl+2`).
-
-## Run it
+## Development
 
 Requires [Node.js](https://nodejs.org/) (LTS, e.g. 20.x).
 
@@ -160,17 +221,6 @@ npm start                  # launch the desktop app (runs Electron with --no-san
 npm run build:win          # produce a Windows installer in dist/
 npm test                   # geometry core tests (projection math, watertight meshes, printability rules)
 ```
-
-npm 11+ skips package install scripts by default. If `npm start` says Electron failed to install, run `node node_modules/electron/install.js` once.
-
-On some Linux distributions Electron stops with *"The SUID sandbox helper binary was found, but is not configured correctly"*. Fix it once with:
-
-```bash
-sudo chown root node_modules/electron/dist/chrome-sandbox
-sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-```
-
-You can also start it with `npx electron . --no-sandbox` for local use.
 
 The Windows installer registers `%APPDATA%\Shadow Box Designer\designs\` as the data folder. A bundled sample (`zoro.json`) is seeded into that folder on first launch — you can open it from the **Open…** dialog right away.
 
@@ -183,12 +233,23 @@ python3 -m http.server 8000
 
 In browser mode, Save / Save As / Open use `localStorage` instead of the filesystem. Desktop-only controls (AI method, "Klasörü göster") are hidden there.
 
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `npm start` says Electron failed to install | npm 11+ skips install scripts. Run `node node_modules/electron/install.js` once. |
+| Linux: *"The SUID sandbox helper binary was found, but is not configured correctly"* | `sudo chown root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox`, or start with `npx electron . --no-sandbox`. |
+| The shadow has saw teeth or dark wedges at the edge | **Baskı Ayarları → Desteksiz baskı** is on. Turn it off and print with slicer supports, or use flat panels. |
+| **Gölge uyumu** is low / fine lines disappear | Detail shrinks towards the shadow edge. Make the body bigger, the **Gölge boyutu** smaller, choose **Detay seviyesi → Çok yüksek**, or click **Detay için iyileştir**. |
+| The body doesn't fit the bed | Set **Tabla genişliği / derinliği / Baskı yüksekliği** to your printer, shrink the body, or switch to flat panels. |
+| AI background removal fails | The model (~170 MB) is downloaded on first use; check your internet connection. The app falls back to a smaller model, and *Quick* needs no model. |
+
 ## Project layout
 
 Standard Electron split: `electron/` for the Node side, `renderer/` for the browser-side app.
 
 ```
-shadowbox/
+ShadowLightBox/
 ├── package.json            npm scripts + electron-builder config
 ├── electron/
 │   ├── main.cjs            BrowserWindow + IPC (designs, AI background removal)

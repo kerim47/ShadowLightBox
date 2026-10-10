@@ -207,7 +207,7 @@
         mode: val('g-mode', 'onepiece'),
         mount: val('g-mount', 'tube'),
         supportLayer: !!(document.getElementById('g-layer') || {}).checked,
-        supportFree: !!(document.getElementById('g-supportfree') || { checked: true }).checked,
+        supportFree: !!(document.getElementById('g-supportfree') || { checked: false }).checked,
         look: {
           ledColor: val('l-color', '#ffc46e'),
           brightness: num('l-bright', 100),

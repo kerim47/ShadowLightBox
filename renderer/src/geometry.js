@@ -300,7 +300,8 @@
     let wallR = 60;           // aydınlanan duvar dokusunun yarı genişliği (cm)
     let floorBelowLamp = -25; // zemin en fazla lambanın altında bu yükseklikte (cm)
     // Montaj parçaları (LED kapağı + tüp tutucu halkası) tablada varsayılan olarak
-    // gizli: ilk açılışta kafa karıştırıyordu. Karanlık odada monte hâli hep görünür.
+    // gizli ("Montaj parçaları" gösterir). Karanlık odada hiç çizilmez: orada
+    // yalnızca basılan gövde ve ışığın kendisi görünür, lambanın önü açık kalır.
     let showLid = false;
     let showDims = true;
     let lightOn = true;
@@ -376,7 +377,7 @@
     function applyVisibility() {
       const capVis = (m) => !m.userData.isCap || showLid;
       bedLamp.children.forEach((m) => { m.visible = capVis(m); });
-      roomLamp.children.forEach((m) => { m.visible = true; });
+      roomLamp.children.forEach((m) => { m.visible = !m.userData.isCap; });
 
       const real = realShadow && lightOn;
       wall.material = real ? wallMatShadow : (lightOn ? wallMatOn : wallMatOff);
@@ -481,7 +482,8 @@
         geo.setIndex(new THREE.BufferAttribute(m.indices, 1));
         geo.computeVertexNormals();
         sharedGeos.push(geo);
-        const isCap = /^(cap|led-|tube-cap)/.test(m.name);
+        // Işık parçaları (kapak, LED yuvası, tüp, tüp tutucu) odada gizli.
+        const isCap = /^(cap|led-|tube-)/.test(m.name);
         const isGlass = m.name === 'tube-glass';
         const mesh = new THREE.Mesh(geo, isGlass ? glassMat : darkMat);
         if (isGlass) mesh.renderOrder = 5;
