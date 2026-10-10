@@ -21,7 +21,7 @@ Read this when you are about to change code. `AGENTS.md` has the short list of i
 ### 1.2 One global per file
 
 - Every `renderer/src/*.js` is an IIFE that sets exactly one global (`Shapes`, `Projection`, `WallField`, `ShellMesher`, `ModelExport`, `Silhouette`, `Stencil`, `Designer`, `Geometry`, `ModelImport`, `DesignStorage`, `FilePicker`, `SilhouetteEditor`, `ImageConverter`, `HelpTips`, `Inspector`, `MenuBar`). `main.js` sets none.
-- Load order is the `<script>` order in `renderer/index.html`. A module may reference another global **at call time** before that script loads, but not at load time. When you add a file, add its `<script>` before its first load-time user and list it in `renderer/src/CLAUDE.md`.
+- Load order is the `<script>` order in `renderer/index.html`. A module may reference another global **at call time** before that script loads, but not at load time. When you add a file, add its `<script>` before its first load-time user and list it in the code map in `AGENTS.md`.
 - No bundler, no `import`/`export`, no npm packages in the renderer except three.js r128 files from `node_modules/three` (pinned `0.128.0`). Don't upgrade three: `examples/js` was removed in later versions.
 
 ### 1.3 Single source of truth
@@ -144,7 +144,7 @@ Id prefixes say which panel it belongs to: `d-` shadow, `s-` body, `g-` print/su
 
 ## 10. Documentation
 
-- Behaviour change → update `README.md` (user-facing), `AGENTS.md` (agent guide), `docs/ARCHITECTURE.md` (algorithms) and the matching `docs/modules/*.md` (API). New directory → add a `CLAUDE.md` in it. New known limitation → `docs/KNOWN_ISSUES.md`.
+- Behaviour change → update `README.md` (user-facing), `AGENTS.md` (agent guide), `docs/ARCHITECTURE.md` (algorithms) and the matching `docs/modules/*.md` (API). New known limitation → `docs/KNOWN_ISSUES.md`.
 - Docs are English (with a one-line Turkish summary at the top); UI strings quoted in docs stay Turkish.
 
 ## 11. Change checklist

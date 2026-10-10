@@ -2,7 +2,7 @@
 
 [English](README.md) | **Türkçe**
 
-> **Yapay zeka ajanları / geliştiriciler:** [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md) ile başlayın; [`docs/README.md`](docs/README.md) diğer bütün belgelerin haritasıdır (mimari, tasarım kuralları, bilinen sorunlar, modül API'leri). Teknik belgeler İngilizcedir.
+> **Yapay zeka ajanları / geliştiriciler:** [`AGENTS.md`](AGENTS.md) ile başlayın; [`docs/README.md`](docs/README.md) diğer bütün belgelerin haritasıdır (mimari, tasarım kuralları, bilinen sorunlar, modül API'leri). Teknik belgeler İngilizcedir.
 
 Bir **fotoğrafı duvara asılan bir gölge lambasına** dönüştüren masaüstü uygulaması. Fotoğraftan silueti çıkarır, ışığı ortada olan bir lamba gövdesi tasarlar (kare, dikdörtgen, silindir, altıgen, yıldız, çiçek, kalp…) ve gövde duvarındaki kesimleri hesaplar: lamba yandığında siluet duvarda çizilmiş gibi görünür. Sonuç, baskıya hazır **tek bir model dosyasıdır** (STL, 3MF, OBJ, FBX, PLY veya GLB). SVG adımı gerekmez. Arayüz Türkçedir.
 
@@ -269,8 +269,7 @@ ShadowLightBox/
 │       └── styles.css
 ├── tests/run-tests.js      Node test paketi (npm test)
 ├── docs/                   Mimari, tasarım kuralları, bilinen sorunlar, modül API'leri (İngilizce)
-├── */CLAUDE.md             Yapay zeka ajanları için klasör rehberleri
-├── AGENTS.md / CLAUDE.md   Yapay zeka kodlama ajanları için rehber
+├── AGENTS.md               Yapay zeka kodlama ajanları için rehber
 ├── README.md               İngilizce belge (varsayılan)
 └── README.tr.md            Bu dosya
 ```

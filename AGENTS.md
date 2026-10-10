@@ -2,7 +2,7 @@
 
 > **Türkçe özet:** Bu, fotoğraftan duvara gölge düşüren 3D baskı lamba tasarlayan bir Electron masaüstü uygulamasıdır. Kullanıcı fotoğraf (veya SVG) yükler; uygulama silueti çıkarır, gövdenin (kare, silindir, yıldız…) duvarlarına ışığın geçeceği kesimleri ters izdüşümle hesaplar ve tek bir STL üretir. Arayüz **tamamen Türkçedir**. Bu dosyayı ve `docs/ARCHITECTURE.md`'yi okumadan kod değiştirmeyin; her değişiklikten sonra `npm test` çalıştırın.
 
-Read this file first. Then open only what the task needs: `docs/README.md` is the map — `docs/ARCHITECTURE.md` (algorithms), `docs/DESIGN_RULES.md` (rules for writing code + change checklist), `docs/KNOWN_ISSUES.md` (open bugs, duplication), `docs/modules/*.md` (per-module API). Each code directory also has a short `CLAUDE.md`. The user-facing overview is in `README.md`.
+Read this file first. Then open only what the task needs: `docs/README.md` is the map — `docs/ARCHITECTURE.md` (algorithms), `docs/DESIGN_RULES.md` (rules for writing code + change checklist), `docs/KNOWN_ISSUES.md` (open bugs, duplication), `docs/modules/*.md` (per-module API). The user-facing overview is in `README.md`.
 
 ## What the app does
 
@@ -64,7 +64,6 @@ docs/ARCHITECTURE.md     Algorithms and data flow in depth
 docs/DESIGN_RULES.md     Rules for writing code: layers, contracts, settings, UI, physics, performance, security, checklist
 docs/KNOWN_ISSUES.md     Open bugs, technical debt, coverage gaps
 docs/modules/*.md        Per-module API, state, callers, extension recipes
-*/CLAUDE.md              Short directory guides (renderer, renderer/src, electron, tests)
 ```
 
 ## Core conventions

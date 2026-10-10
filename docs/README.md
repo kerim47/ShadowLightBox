@@ -1,20 +1,18 @@
 # Documentation index
 
-> **Türkçe özet:** Belgelerin haritası. Yapay zeka ajanları için: önce kök `CLAUDE.md`, sonra yalnızca işin gerektirdiği dosyayı açın — hepsini birden okumayın.
+> **Türkçe özet:** Belgelerin haritası. Yapay zeka ajanları için: önce kök `AGENTS.md`, sonra yalnızca işin gerektirdiği dosyayı açın — hepsini birden okumayın.
 
 Read only what the task needs.
 
 | File | Read it when |
 |---|---|
-| `../CLAUDE.md` | always (auto-loaded): essentials and this map |
-| `../AGENTS.md` | you need the full agent guide: invariants, "where to change what", physics facts, pitfalls |
+| `../AGENTS.md` | always first: the agent guide (invariants, "where to change what", physics facts, pitfalls) |
 | `ARCHITECTURE.md` | you change an algorithm or need the data flow (shapes, projection, wall field, mesher, silhouette, designer, 3D, editor, converter, Electron) |
 | `DESIGN_RULES.md` | you are about to write code: layers, data contracts, units, settings wiring, UI/physics/performance/security rules, change checklist |
 | `KNOWN_ISSUES.md` | something behaves oddly, or before refactoring (known bugs, duplication, missing coverage) |
 | `modules/*.md` | you change a specific module: its API, state, callers, extension recipe, pitfalls |
 | `../README.md` | user-facing features and wording |
 
-Directory guides (auto-loaded by Claude Code when you open files there): `renderer/CLAUDE.md`, `renderer/src/CLAUDE.md`, `electron/CLAUDE.md`, `tests/CLAUDE.md`.
 
 ## Module docs
 
