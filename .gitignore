@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+
+# Lamp exports
+*.stl
+*.3mf
+*.fbx
+*.ply
+*.glb

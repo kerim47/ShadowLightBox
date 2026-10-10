@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' data: blob:; worker-src 'self' blob:; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+<title>Gölge Lambası Tasarımcısı</title>
+<link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-name">Gölge Lambası</span>
+    </div>
+    <nav id="menubar"></nav>
+    <div class="ws-switch">
+      <button class="seg active" data-ws="lamp" title="Lamba (Ctrl+1)">Lamba</button>
+      <button class="seg" data-ws="editor" title="Siluet Editörü (Ctrl+2)">Siluet Editörü</button>
+    </div>
+    <div class="topbar-actions">
+      <span class="brand-file" title="Açık tasarım"><span id="dirty-dot" hidden>● </span><span id="current-design-name">adsız</span></span>
+      <div id="save-toast" class="save-toast" hidden>Kaydedildi</div>
+      <div class="export-group">
+        <select id="wf-format" aria-label="Dışa aktarma biçimi"></select>
+        <button id="wf-stl" class="primary" title="Modeli indir (Ctrl+E)">STL İndir</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+
+      <section class="panel open" data-panel="silhouette">
+        <button class="panel-head"><span>Siluet</span><i class="chev"></i></button>
+        <div class="panel-body">
+          <button id="wf-photo" class="primary block">Fotoğraf yükle…</button>
+          <div class="target-stack">
+            <canvas id="target" width="1024" height="1024"></canvas>
+          </div>
+          <div class="row-buttons" id="brush-controls">
+            <button id="wf-edit" class="small">✎ Siluet Editörü'nde düzenle</button>
+            <button id="wf-suggest" class="small">Şekil öner</button>
+            <button id="clear" class="small">Temizle</button>
+          </div>
+          <div class="row-buttons" id="image-edit-controls" hidden>
+            <button id="image-apply" class="primary small">Yerleştirmeyi uygula</button>
+            <button id="image-cancel" class="small">İptal</button>
+            <span class="hint">sürükle: taşı · tekerlek: boyut · turuncu = ışık</span>
+          </div>
+          <div id="accuracy" class="accuracy" hidden></div>
+          <button id="wf-optimize" class="block" hidden>✦ Detay için iyileştir</button>
+          <label class="check"><input type="checkbox" id="wf-autoshape" checked /> Fotoğraftan sonra şekli otomatik seç</label>
+        </div>
+      </section>
+
+      <section class="panel open" data-panel="shadow">
+        <button class="panel-head"><span>Gölge Ayarları</span><i class="chev"></i></button>
+        <div class="panel-body" id="fields-shadow"></div>
+      </section>
+
+      <section class="panel open" data-panel="body">
+        <button class="panel-head"><span>Gövde Ayarları</span><i class="chev"></i></button>
+        <div class="panel-body" id="fields-body"></div>
+      </section>
+
+      <section class="panel" data-panel="support">
+        <button class="panel-head"><span>Destek ve Kesim</span><i class="chev"></i></button>
+        <div class="panel-body" id="fields-support"></div>
+      </section>
+
+      <section class="panel" data-panel="print">
+        <button class="panel-head"><span>Baskı Ayarları</span><i class="chev"></i></button>
+        <div class="panel-body" id="fields-print"></div>
+      </section>
+
+      <section class="panel" data-panel="room">
+        <button class="panel-head"><span>Karanlık Oda</span><i class="chev"></i></button>
+        <div class="panel-body">
+          <div id="fields-room"></div>
+          <details class="light-tip">
+            <summary>Hangi LED'i kullanmalıyım?</summary>
+            <p><strong>Küçük, tek çipli bir LED</strong>: 1–3 W, yayıcı yüzeyi 3 mm'den küçük, sıcak beyaz, en az 120° ışın açısı (ör. 20 mm star PCB üzerinde 1 W / 3 W LED ve 5 V USB sürücü). Kapağa duvara bakacak şekilde takılır. Ampul veya büyük COB siluetin kenarlarını bulanıklaştırır.</p>
+          </details>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="compare">
+        <button class="panel-head"><span>Model Karşılaştırma</span><i class="chev"></i></button>
+        <div class="panel-body">
+          <p class="field-note">Önizlemenin doğruluğunu ölçün: bir 3B modeli (ör. buradan indirdiğiniz STL) üretilen lambanın üzerine bindirin, ölçüleri karşılaştırın ve karanlık odada gerçek gölgesini görün.</p>
+          <button id="c-load" class="block">Model yükle (STL · OBJ · 3MF · FBX)…</button>
+          <input type="file" id="c-file" accept=".stl,.obj,.3mf,.fbx" style="display:none" />
+          <div id="c-info" class="wall-stats"></div>
+          <div id="fields-compare"></div>
+          <div id="c-stats" class="wall-stats"></div>
+          <button id="c-remove" class="small" hidden>Modeli kaldır</button>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="wall">
+        <button class="panel-head"><span>Açılmış Duvar</span><i class="chev"></i></button>
+        <div class="panel-body">
+          <canvas id="wall-strip" class="wall-strip"></canvas>
+          <div id="wall-stats" class="wall-stats"></div>
+          <p class="footnote">Krem = kesilir (ışık geçer), mor = dolu, kırmızı = ışığın önü. Turuncu işaretler destek kolonları; kesikli çizgiler köşeler.</p>
+        </div>
+      </section>
+    </aside>
+
+    <main class="viewport" id="three-wrap">
+      <div class="view-switch">
+        <button class="seg active" data-view="bed">Yazıcı Tablası</button>
+        <button class="seg" data-view="room">Karanlık Oda</button>
+      </div>
+      <div id="lamp-status" class="status-card" hidden></div>
+      <div id="print-status" class="print-status bed-only" hidden></div>
+      <div class="view-toolbar">
+        <button class="tool" data-cam="iso" title="İzometrik">İzometrik</button>
+        <button class="tool" data-cam="top" title="Üstten">Üst</button>
+        <button class="tool" data-cam="front" title="Önden">Ön</button>
+        <span class="tool-sep"></span>
+        <button class="tool bed-only" id="t-cap" title="Montaj parçalarını (LED kapağı ve tüp tutucu halkası) tablada göster/gizle — STL'de her zaman vardır">Montaj parçaları</button>
+        <button class="tool bed-only" id="t-dims" title="Ölçüleri göster/gizle">Ölçüler</button>
+        <button class="tool room-only" id="t-light" title="Lambayı aç/kapat">Lamba</button>
+        <label class="tool room-only tool-color" title="LED rengi"><input type="color" id="t-lcolor" value="#ffc46e" /></label>
+        <label class="tool room-only tool-range" title="Işık şiddeti">☀ <input type="range" id="t-lbright" min="10" max="300" step="5" value="100" /></label>
+        <button class="tool room-only" id="t-real" title="Gölgeyi STL geometrisinden gerçek zamanlı hesapla (simülasyonla karşılaştırmak için)">Gerçek gölge</button>
+      </div>
+    </main>
+  </div>
+  <div class="editor" id="editor" hidden></div>
+  <div class="converter" id="converter" hidden></div>
+  <footer class="statusbar">
+    <span id="sb-ws">Lamba</span>
+    <span id="sb-msg" class="sb-msg"></span>
+    <span class="sb-spacer"></span>
+    <span id="sb-save"></span>
+    <button id="sb-print" class="sb-link sb-print" hidden title=""></button>
+    <button id="sb-explorer" class="sb-link" title="Inspector'da Dosyalar ↔ Özellikler (Ctrl+J)">🗂 Dosyalar</button>
+    <button id="sb-msgs" class="sb-link" title="Geçmiş mesajları göster">💬 Mesajlar</button>
+    <button id="sb-keys" class="sb-link" title="Klavye kısayolları (F1)">⌨ Kısayollar · F1</button>
+  </footer>
+</div>
+<aside id="msg-panel" class="msg-panel" hidden>
+  <header><strong>Mesajlar</strong><button class="small clear">Temizle</button><button class="small close" title="Kapat">×</button></header>
+  <ul></ul>
+</aside>
+<div id="drop-overlay" class="drop-overlay" hidden><div><strong>Bırakın</strong><span id="drop-what"></span></div></div>
+<input type="file" id="design-file" accept=".json,application/json" style="display:none" />
+
+<div id="modal-photo" class="modal" hidden>
+  <div class="modal-box modal-wide">
+    <h3>Fotoğraftan siluet</h3>
+    <p class="modal-sub">Koyu kısım duvarda gölge olur. Sonradan "Siluet" bölümünde fırçayla düzeltebilirsiniz. SVG de yükleyebilirsiniz.</p>
+    <div class="photo-grid">
+      <div class="photo-stage">
+        <div class="photo-tools" role="toolbar" aria-label="Seçim araçları">
+          <button class="small" data-ptool="rect" title="Kaçırılan nesnenin (kılıç, saç…) etrafına kutu çizin: o alandaki hatlar ayrıca aranıp siluete eklenir. Birden çok alan çizebilirsiniz (A)">▭ Detay alanı</button>
+          <button class="small" data-ptool="add" title="Kaçan parçaların (kılıç, saç teli…) üzerine boyayın: konuya eklenir (E)">🖌 Ekle</button>
+          <button class="small" data-ptool="remove" title="İstenmeyen yerlerin üzerine boyayın: konudan çıkarılır (R)">⌫ Çıkar</button>
+          <label class="photo-brush" title="Fırça boyutu ([ küçült, ] büyüt)">Fırça <input type="range" id="photo-brush" min="4" max="80" value="18" /></label>
+          <span class="photo-tools-sep"></span>
+          <button class="small" id="photo-clear-rect" title="Bütün detay alanlarını kaldır (son alan: Ctrl+Z)" disabled>Alanları kaldır</button>
+          <button class="small" id="photo-clear-hints" title="Fırça izlerini sil (Delete) · son darbeyi geri al: Ctrl+Z" disabled>Fırçayı temizle</button>
+        </div>
+        <canvas id="photo-preview" width="760" height="540"></canvas>
+        <div class="photo-legend"><span><i style="background:#141414"></i>gölge</span><span><i style="background:#ffcd5a"></i>ışık</span><span><i style="background:#3ad16a"></i>eklenen</span><span><i style="background:#ff4b3e"></i>çıkarılan</span></div>
+      </div>
+      <div class="photo-side">
+        <button id="photo-choose">Fotoğraf seç…</button>
+        <input type="file" id="photo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" style="display:none" />
+        <div class="field">
+          <label for="photo-method">Yöntem</label>
+          <select id="photo-method">
+            <option value="portrait">Detaylı portre — yüz hatları gölgede görünür (önerilen)</option>
+            <option value="ai">Düz siluet — yapay zeka ile arka plan silme</option>
+            <option value="quick">Düz siluet — hızlı (sade arka plan)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Hassasiyet <b id="photo-sens-out">0</b></label>
+          <input type="range" id="photo-sens" min="-100" max="100" value="0" step="5" />
+        </div>
+        <div class="field" id="photo-local-wrap">
+          <label>Yerel kontrast (gözler, kaşlar) <b id="photo-local-out">50</b></label>
+          <input type="range" id="photo-local" min="0" max="100" value="50" step="5" />
+        </div>
+        <div class="field" id="photo-outline-wrap">
+          <label>Dış hat kalınlığı <b id="photo-outline-out">3</b></label>
+          <input type="range" id="photo-outline" min="0" max="12" value="3" step="1" />
+        </div>
+        <div class="field">
+          <label>Kenar yumuşatma <b id="photo-smooth-out">1</b></label>
+          <input type="range" id="photo-smooth" min="0" max="8" value="1" step="1" />
+        </div>
+        <label class="check"><input type="checkbox" id="photo-invert" /> Ters çevir (konu arka plandan açık renkli)</label>
+        <label class="check"><input type="checkbox" id="photo-solid" /> Dolu siluet (içteki boşlukları doldur)</label>
+        <div id="photo-status" class="photo-status"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button id="photo-use" class="primary" disabled>Silueti kullan</button>
+      <button id="photo-cancel">İptal</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-export" class="modal" hidden>
+  <div class="modal-box">
+    <h3 id="export-title">Modeli indir</h3>
+    <p class="modal-sub">Işık parçaları: LED kapağı / ışık çubuğu ve tüp tutucu halkası. Yalnızca lambayı gerçekten basacaksanız gerekir; Unity, Blender gibi programlara aktarırken genelde istenmez.</p>
+    <label class="check"><input type="checkbox" id="export-light" /> Işık parçalarını da dahil et</label>
+    <div class="modal-actions">
+      <button id="export-confirm" class="primary">İndir</button>
+      <button id="export-cancel">İptal</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-saveas" class="modal" hidden>
+  <div class="modal-box">
+    <h3>Farklı kaydet</h3>
+    <p class="modal-sub">Dosyalar uygulamanın veri klasöründe tutulur.</p>
+    <input type="text" id="saveas-name" placeholder="tasarım adı" autocomplete="off" />
+    <div class="modal-error" id="saveas-error" hidden></div>
+    <div class="modal-actions">
+      <button id="saveas-confirm" class="primary">Kaydet</button>
+      <button id="saveas-cancel">İptal</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-open" class="modal" hidden>
+  <div class="modal-box">
+    <h3>Tasarım aç</h3>
+    <p class="modal-sub" id="open-data-dir"></p>
+    <ul id="design-list" class="design-list"></ul>
+    <div class="modal-empty" id="design-list-empty" hidden>Henüz kayıtlı tasarım yok.</div>
+    <div class="modal-actions">
+      <button id="open-cancel">İptal</button>
+    </div>
+  </div>
+</div>
+
+<script src="../node_modules/three/build/three.min.js"></script>
+<script src="../node_modules/three/examples/js/libs/fflate.min.js"></script>
+<script src="../node_modules/three/examples/js/curves/NURBSUtils.js"></script>
+<script src="../node_modules/three/examples/js/curves/NURBSCurve.js"></script>
+<script src="../node_modules/three/examples/js/loaders/STLLoader.js"></script>
+<script src="../node_modules/three/examples/js/loaders/OBJLoader.js"></script>
+<script src="../node_modules/three/examples/js/loaders/3MFLoader.js"></script>
+<script src="../node_modules/three/examples/js/loaders/FBXLoader.js"></script>
+<script src="src/filepicker.js"></script>
+<script src="src/geometry.js"></script>
+<script src="src/shapes.js"></script>
+<script src="src/projection.js"></script>
+<script src="src/wall_field.js"></script>
+<script src="src/shell_mesher.js"></script>
+<script src="src/exporters.js"></script>
+<script src="src/silhouette.js"></script>
+<script src="src/stencil.js"></script>
+<script src="src/model_import.js"></script>
+<script src="src/editor.js"></script>
+<script src="src/converter.js"></script>
+<script src="src/designer.js"></script>
+<script src="src/storage.js"></script>
+<script src="src/helptips.js"></script>
+<script src="src/inspector.js"></script>
+<script src="src/menubar.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>

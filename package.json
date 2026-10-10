@@ -1,0 +1,48 @@
+{
+  "name": "shadowbox-designer",
+  "version": "1.0.0",
+  "description": "Photo → shadow lamp designer (Electron desktop app)",
+  "author": "Abdülkerim Akan <kerimakan77@gmail.com>",
+  "license": "MIT",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "test": "node tests/run-tests.js"
+  },
+  "dependencies": {
+    "onnxruntime-node": "^1.20.1",
+    "three": "0.128.0"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.shadowbox.designer",
+    "productName": "Shadow Box Designer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "renderer/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**"
+    ]
+  }
+}
