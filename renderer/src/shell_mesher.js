@@ -452,6 +452,7 @@
    *   tubeOD, holderHeight,              // şeffaf tüp montajı
    *   chamfer, supportLayer,             // düz paneller
    *   merge (false → dolu bölgeler birleştirilmez; yalnızca test/karşılaştırma),
+   *   rayAlign (false → delik kenarları duvar normaline dik; varsayılan: LED ışınına paralel),
    *   bed ({ x, y, z } mm veya kare için tek sayı), assembled (true → lamba koordinatlarında önizleme)
    * }
    */
@@ -584,15 +585,40 @@
     const colN = Array.from(field.colS, (s) => shape.normalAt(s));
     const NC = field.nc;
 
+    // ----- ışın hizalı kesim -----
+    // Delik kenarları duvar normaline değil LED'den gelen ışına paralel kesilir:
+    // iç ve dış yüzeydeki nokta, orta yüzeydeki noktayla ve LED'le aynı doğrudadır.
+    // Böylece duvar kalınlığı (eğik gelen ışıkta "tünel" etkisi) gölgeyi daraltmaz:
+    // 2 mm duvarda tabana yakın ~1,6 mm'lik yarıklar dik kesimde ışığı hiç geçirmez.
+    // Bantlarda (taban, ışığın önü) ve düz panel uçlarında (yapıştırma birleşimi)
+    // normal kesime yumuşakça geçilir.
+    const rayAlign = opts.rayAlign !== false;
+    const zLo = field.rowZ[1] || 0, zHi = field.cz - (field.margin || 0);
+    const smooth01 = (u) => { const v = Math.max(0, Math.min(1, u)); return v * v * (3 - 2 * v); };
+    const rayWeight = (z) => (rayAlign ? smooth01((z - zLo) / 0.2) * smooth01((zHi - z) / 0.2) : 0);
+    /** Orta yüzey noktası (x, y, z cm), birim normal (nx, ny), uzaklık off (cm) → yüzey noktası ofseti [dx, dy, dz]. */
+    function surfaceOffset(x, y, z, nx, ny, off, wExtra) {
+      const w = rayWeight(z) * (wExtra == null ? 1 : wExtra);
+      if (!off) return [0, 0, 0];
+      const dx = x, dy = y, dz = z - field.cz;            // LED → nokta
+      const dn = dx * nx + dy * ny;
+      if (w <= 0 || dn <= 1e-6) return [nx * off, ny * off, 0];
+      const k = off / dn;                                  // (Q − P)·n = off
+      return [(dx * k) * w + nx * off * (1 - w), (dy * k) * w + ny * off * (1 - w), dz * k * w];
+    }
+
     function shellWall() {
       const map = (c, f, z, side) => {
         const c1 = (c + 1) % NC;
         const p0 = colPt[c], p1 = colPt[c1], n0 = colN[c], n1 = colN[c1];
         const k = shape.scaleAt(z);
         const off = (side * t) / 2 / MM;
-        const x = (p0.x + (p1.x - p0.x) * f) * k + (n0[0] + (n1[0] - n0[0]) * f) * off;
-        const y = (p0.y + (p1.y - p0.y) * f) * k + (n0[1] + (n1[1] - n0[1]) * f) * off;
-        return [x * MM, y * MM, z * MM];
+        const xm = (p0.x + (p1.x - p0.x) * f) * k, ym = (p0.y + (p1.y - p0.y) * f) * k;
+        let nx = n0[0] + (n1[0] - n0[0]) * f, ny = n0[1] + (n1[1] - n0[1]) * f;
+        const nl = Math.hypot(nx, ny) || 1;
+        // Ofset büyüklüğü eski formülle aynı kalsın (köşede ortalama normal kısalır).
+        const o = surfaceOffset(xm, ym, z, nx / nl, ny / nl, off * nl);
+        return [(xm + o[0]) * MM, (ym + o[1]) * MM, (z + o[2]) * MM];
       };
       return wallMesh(field, map, { periodic: true, name: 'shell', merge: opts.merge });
     }
@@ -672,12 +698,26 @@
           ? ((t / 2) * Math.tan((turn(e) + turn((e + 1) % nv)) / 4)) / (len * MM / 2)
           : 0;
         const sOf = (i) => (i < NC ? field.colS[i] : shape.perimeter);
+        // Panelin birim teğeti ve dış normali (lamba koordinatında, CCW şekil).
+        const tx = (pB[0] - pA[0]) / (len || 1), ty = (pB[1] - pA[1]) / (len || 1);
+        const nxE = ty, nyE = -tx;
         const map = (c, f, z, side) => {
           const gc = ca + c;
           const s0 = sOf(gc), s1 = sOf(gc + 1);
           const sl = s0 + (s1 - s0) * f - sA - len / 2;
+          const k = shape.scaleAt(z);
+          // Işın hizalı kesim: dış/iç yüz noktası panel düzleminde (teğet, z) kayar.
+          // Uçlara 4 mm kala normal kesime dönülür (komşu panelle pahlı birleşim bozulmasın).
+          let ds = 0, dz = 0;
+          if (side) {
+            const xm = (pA[0] + tx * (sl + len / 2)) * k, ym = (pA[1] + ty * (sl + len / 2)) * k;
+            const endW = smooth01((len / 2 - Math.abs(sl)) * k / 0.4);
+            const o = surfaceOffset(xm, ym, z, nxE, nyE, (side * t) / 2 / MM, endW);
+            ds = o[0] * tx + o[1] * ty;
+            dz = o[2];
+          }
           // Dış yüz (side +1, üstte) uzun, iç yüz (tablada) kısa → pahlı uçlar.
-          return [sl * shape.scaleAt(z) * MM * (1 + side * miter), z * slant * MM, ((side + 1) * t) / 2];
+          return [(sl * k + ds) * MM * (1 + side * miter), (z + dz) * slant * MM, ((side + 1) * t) / 2];
         };
         const panel = wallMesh(field, map, { periodic: false, c0: ca, ncol, name: `panel-${e + 1}`, merge: opts.merge });
         const group = [panel];

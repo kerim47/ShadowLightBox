@@ -97,6 +97,20 @@ For a rectangle with `k = 0` this reduces exactly to the original box formula (`
 
 ## 5. Mesher (`shell_mesher.js`)
 
+### Printable widths (wall_field)
+
+- After tiny holes are filled, wall strips thinner than `minWall` (0.8 mm, two 0.4 mm nozzle lines) are thickened and light gaps narrower than `minGap` (0.5 mm) are widened, measured in real mm on the wall (taper and non-uniform rows included).
+- Thickness at a vertex comes from its horizontal and vertical runs (`t = 1/√(1/h² + 1/v²)`), so a slanted line is measured by its true width. A disk of the limit's diameter is drawn on the centre line of each thin run as a signed-distance ramp (sub-cell exact edges).
+- On a line-art test (13 cm square) this takes unprintable wall from ~19 % of the wall area to ~0.2 %; plain silhouettes are unchanged. The preview samples this final field, so the shadow shows the thickened lines.
+- Grid: the column spacing starts at 0.2 mm and grows until the cell budget fits, so "Çok yüksek" is really finer than "Yüksek" on small bodies.
+
+### Real light: LED emitter and wall thickness
+
+- **Ray-aligned cuts (mesh):** the inner and outer wall surfaces of every vertex lie on the ray from the LED through the mid-surface point (`surfaceOffset` in `shell_mesher.js`), so hole walls are parallel to the light instead of perpendicular to the wall. A 2 mm wall then no longer shadows low slits (with perpendicular cuts a ray near the base shifts ~1.6 mm inside the wall, so slits lower than that pass no light; tested by ray tracing the mesh). Bands and the last 4 mm of flat panels blend back to normal cuts (plate contact, glued mitres).
+- **LED emitter (preview + score):** a real LED is a disk of 1–3 mm, not a point. `WallField.litFraction(field, X, Y, emitterCm)` returns the lit fraction 0..1: 16 emitter points (Vogel disk); a small emitter offset moves the ray's crossing linearly — radial `Δz = cz·(ρ − r)/ρ² · e_r`, tangential `Δs = (ρ − r)/ρ · e_t`. The penumbra width is ≈ `emitter · z / (cz − z)` = `emitter · (M − 1)` (M = magnification), independent of depth. A 7-point quick test skips full sampling outside penumbras. The room texture is shaded with the fraction; the score counts `fraction < 0.5` as shadow. The 3D "Gerçek gölge" view adds 6 shadow-casting lights on the emitter ring.
+- **Score:** besides the overall IoU, `edge` = IoU only within 4 mm of the target's edges (fine detail) and `soft` = share of that band in the penumbra (10–90 % lit).
+- **What sets detail at a fixed body width** (measured on a portrait, 130 mm body): emitter size sets sharpness (blurred edges 41 % at 2 mm → 22 % at 1 mm); depth (radial magnification ∝ 1/cz), shadow size and a smaller magnification set edge match. "Detay için iyileştir" never changes width/height: it applies print-only settings itself and offers depth / mount / shadow size / LED as measured suggestions.
+
 ### Marching squares → watertight solid
 
 - Cell corners are traversed CCW: bl, br, tr, tl. Solid means `F ≤ 0.5`.

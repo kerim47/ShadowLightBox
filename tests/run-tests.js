@@ -198,6 +198,108 @@ console.log('\n3) Yapısal kurallar');
     check('düz panel: ince çizgili desende hiçbir panelde kopuk parça kalmaz', !bad.length, bad.join(', '));
   }
   {
+    // Basılabilir kalınlık: ince çizgili çizimde 0,8 mm'den ince duvar şeridi kalmaz
+    // (alt hücre ölçüm: her satır/sütundaki dolu koşu, 0,5 geçişlerinden mm cinsinden).
+    const lineart = (X, Y) => {
+      const r = Math.hypot(X, Y), a = Math.atan2(Y, X);
+      const ring = r < 50 && Math.abs(((r / 5) % 1) - 0.5) < 0.04 + 0.002 * r;
+      const ray = r > 10 && r < 50 && Math.abs(((a / (2 * Math.PI) * 36) % 1) - 0.5) < 0.05;
+      return ring || ray ? 0 : 1;
+    };
+    const shl = Shapes.make({ kind: 'square', W: 13 }, D);
+    const opt = { shape: shl, d: D, cz: CZ, margin: MARGIN, sample: lineart, bottomBand: 0.35, openTop: true };
+    // Basılamayan duvar oranı: 0,7 mm çaplı bir dairenin içine sığamadığı dolu noktalar
+    // (daire açma), bir yüzde 0,1 mm çözünürlükte. Yuvarlak uçlar sayılmaz.
+    const thinShare = (f) => {
+      const res = 0.01, W = Math.round(13 / res), z0 = 0.4, H = Math.round((CZ - MARGIN - 0.1 - z0) / res);
+      const solid = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) solid[y * W + x] = WallField.sampleField(f, 6.5 + (x + 0.5) * res, z0 + (y + 0.5) * res) <= 0.5 ? 1 : 0;
+      const R = 3, offs = [];
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (dx * dx + dy * dy <= R * R) offs.push(dy * W + dx);
+      const cover = new Uint8Array(W * H);
+      for (let y = R; y < H - R; y++) for (let x = R; x < W - R; x++) {
+        const i = y * W + x;
+        if (solid[i] && offs.every((o) => solid[i + o])) offs.forEach((o) => { cover[i + o] = 1; });
+      }
+      let thin = 0, tot = 0;
+      for (let y = R; y < H - R; y++) for (let x = R; x < W - R; x++) { const i = y * W + x; if (solid[i]) { tot++; if (!cover[i]) thin++; } }
+      return thin / Math.max(1, tot);
+    };
+    const f0 = WallField.compute(Object.assign({}, opt));
+    const f1 = WallField.compute(Object.assign({ minWall: 0.8, minGap: 0.5 }, opt));
+    const t0 = thinShare(f0), t1 = thinShare(f1);
+    check('basılabilir kalınlık: 0,7 mm\'lik daireye sığmayan ince duvar kalınlaştırılır', t0 > 0.05 && t1 < 0.015 && f1.stats.thickened > 0,
+      `önce %${(t0 * 100).toFixed(1)}, sonra %${(t1 * 100).toFixed(1)}`);
+  }
+  {
+    // Işın hizalı kesim: tabana yakın 1,2 mm yüksekliğinde yatay yarık. LED'den
+    // duvara giden ışınlar üretilen 3B duvar mesh'ine karşı izlenir (Möller–Trumbore).
+    // 2 mm duvarda dik kesim ışığı keser (ışın kesimin içinde ~1,6 mm kayar),
+    // ışına paralel kesim geçirir.
+    const shs = Shapes.make({ kind: 'square', W: 13 }, D);
+    const slitZ0 = 1.0, slitZ1 = 1.12, sA = 9, sB = 17;
+    const sample = (X, Y) => {
+      const inv = Projection.inverseShell(X, Y, shs, CZ, MARGIN);
+      return inv && !inv.blocked && inv.z > slitZ0 && inv.z < slitZ1 && inv.s > sA && inv.s < sB ? 1 : 0;
+    };
+    const fs = WallField.compute({ shape: shs, d: D, cz: CZ, margin: MARGIN, sample, bottomBand: 0.35, openTop: true, maxCells: 380000 });
+    const litShare = (rayAlign) => {
+      const lamp = ShellMesher.buildLamp(fs, { mount: 'tube', assembled: true, thickness: 2, rayAlign });
+      const m = lamp.meshes.find((x) => x.name === 'shell');
+      const P = m.positions, I = m.indices;
+      const L = [0, 0, CZ * 10];
+      let lit = 0, n = 0;
+      for (let k = 0; k < 40; k++) {
+        const sp = 10 + (k / 39) * 6;                          // yarığın ortası boyunca
+        const fw = Projection.forwardShell(sp, (slitZ0 + slitZ1) / 2, shs, CZ);
+        const T = [fw.X * 10, fw.Y * 10, 0];
+        const d = [T[0] - L[0], T[1] - L[1], T[2] - L[2]];
+        let hit = false;
+        for (let q = 0; q < I.length && !hit; q += 3) {
+          const a = I[q] * 3, b = I[q + 1] * 3, c = I[q + 2] * 3;
+          const e1 = [P[b] - P[a], P[b + 1] - P[a + 1], P[b + 2] - P[a + 2]], e2 = [P[c] - P[a], P[c + 1] - P[a + 1], P[c + 2] - P[a + 2]];
+          const pv = [d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2], d[0] * e2[1] - d[1] * e2[0]];
+          const det = e1[0] * pv[0] + e1[1] * pv[1] + e1[2] * pv[2];
+          if (Math.abs(det) < 1e-12) continue;
+          const tv = [L[0] - P[a], L[1] - P[a + 1], L[2] - P[a + 2]];
+          const u = (tv[0] * pv[0] + tv[1] * pv[1] + tv[2] * pv[2]) / det;
+          if (u < 0 || u > 1) continue;
+          const qv = [tv[1] * e1[2] - tv[2] * e1[1], tv[2] * e1[0] - tv[0] * e1[2], tv[0] * e1[1] - tv[1] * e1[0]];
+          const v = (d[0] * qv[0] + d[1] * qv[1] + d[2] * qv[2]) / det;
+          if (v < 0 || u + v > 1) continue;
+          const tt = (e2[0] * qv[0] + e2[1] * qv[1] + e2[2] * qv[2]) / det;
+          if (tt > 1e-6 && tt < 1 - 1e-6) hit = true;
+        }
+        n++; if (!hit) lit++;
+      }
+      return lit / n;
+    };
+    const normal = litShare(false), aligned = litShare(true);
+    check('ışın hizalı kesim: 2 mm duvarda tabana yakın 1,2 mm yarık ışığı geçirir (dik kesim geçirmez)', aligned > 0.9 && normal < 0.2,
+      `dik kesim %${(normal * 100).toFixed(0)}, ışın hizalı %${(aligned * 100).toFixed(0)} ışık`);
+  }
+  {
+    // Gerçekçi LED: yayıcısı olan ışık düz bir gölge kenarında yarı gölge üretir;
+    // genişliği fiziğe uyar (≈ yayıcı · z / (cz − z)), nokta LED keskin kalır.
+    const she = Shapes.make({ kind: 'square', W: 13 }, D);
+    const Y0 = 30;
+    const fe = WallField.compute({ shape: she, d: D, cz: CZ, margin: MARGIN, sample: (X, Y) => (Y < Y0 ? 1 : 0), bottomBand: 0.35, openTop: true, maxCells: 380000 });
+    const width = (em) => {
+      let a = null, b = null;
+      for (let Y = Y0 + 4; Y > Y0 - 4; Y -= 0.005) {     // gölgeden ışığa
+        const v = WallField.litFraction(fe, 0, Y, em);
+        if (a == null && v > 0.1) a = Y;
+        if (b == null && v > 0.9) { b = Y; break; }
+      }
+      return a != null && b != null ? (a - b) * 10 : NaN;   // mm
+    };
+    const inv = Projection.inverseShell(0, Y0, she, CZ, MARGIN);
+    const expect = 2 * inv.z / (CZ - inv.z);               // 2 mm yayıcı, tam yarı gölge (mm)
+    const w0 = width(0), w2 = width(0.2);
+    check('gerçekçi LED: 2 mm yayıcı gölge kenarını fiziğe uygun yumuşatır, nokta LED keskin kalır',
+      w0 < 0.2 && w2 > 0.5 * expect && w2 < 1.2 * expect, `nokta ${w0.toFixed(2)} mm, 2 mm yayıcı ${w2.toFixed(1)} mm (beklenen tam genişlik ${expect.toFixed(1)} mm)`);
+  }
+  {
     // Dolu bölge birleştirme: üçgen sayısı düşer, şekil (hacim) aynı kalır.
     for (const kind of ['square', 'circle', 'star']) {
       const sh = Shapes.make({ kind, W: 15, N: 6, A: 0.5 }, D);

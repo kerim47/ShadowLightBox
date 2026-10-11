@@ -89,8 +89,10 @@
         let hit = false;
         p.keys.forEach((k, i) => {
           const v = m[i + 1];
-          const tv = v && /[^\d\s.,%×+−\-:/()]/.test(v) ? translateText(v, (depth || 0) + 1) : null;
-          if (tv != null) hit = true;
+          const numeric = !v || !/[^\d\s.,%×+−\-:/()]/.test(v);
+          const tv = !numeric ? translateText(v, (depth || 0) + 1) : null;
+          // Zayıf kalıp (ör. "%{0}") sayısal değerle de geçerlidir: sayı çevrilmez ama kalıp çevrilir.
+          if (tv != null || (numeric && v)) hit = true;
           vars[k] = tv != null ? tv : v;
         });
         if (weak && !hit) continue;      // zayıf kalıp yalnızca bir parçası çevrildiyse sayılır

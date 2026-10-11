@@ -33,8 +33,8 @@
         ['square', 'Kare'], ['rect', 'Dikdörtgen'], ['roundedRect', 'Yuvarlak köşeli'], ['circle', 'Silindir'],
         ['polygon', 'Çokgen (altıgen, sekizgen…)'], ['star', 'Yıldız'], ['flower', 'Çiçek'], ['heart', 'Kalp']] },
       // Gövde ölçüleri arayüzde mm (baskı ölçüsü); designer.readParams cm'ye çevirir.
-      { id: 's-W', param: 'W', label: 'Genişlik', unit: 'mm', min: 60, max: 400, step: 5, value: 150 },
-      { id: 's-H', param: 'H', label: 'Yükseklik', unit: 'mm', min: 60, max: 400, step: 5, value: 150 },
+      { id: 's-W', param: 'W', label: 'Genişlik', unit: 'mm', min: 60, max: 400, step: 5, value: 130 },
+      { id: 's-H', param: 'H', label: 'Yükseklik', unit: 'mm', min: 60, max: 400, step: 5, value: 130 },
       { id: 's-N', param: 'N', label: 'Kenar sayısı', unit: '', min: 3, max: 12, step: 1, value: 6 },
       { id: 's-A', param: 'A', label: 'Oran', unit: '%', min: 20, max: 90, step: 1, value: 50 },
       { id: 's-d', label: 'Derinlik', unit: 'mm', min: 30, max: 250, step: 5, value: 60 },
@@ -48,12 +48,16 @@
         note: 'Kopuk parçaları (harf, dal ucu) bağlayan köprüler. İnce = gölgede az görünür; 0,8 mm altı basılamaz.' },
       { id: 'd-margin', label: 'Işığa en yakın kesim payı', unit: 'mm', min: 1, max: 10, step: 1, value: 3 },
       { id: 'd-minhole', label: 'En küçük ışık deliği', unit: 'mm²', min: 0, max: 30, step: 1, value: 2 },
+      { id: 'd-minwall', label: 'En ince duvar', unit: 'mm', min: 0, max: 3, step: 0.1, value: 0.8,
+        note: 'Bundan ince duvar şeritleri kalınlaştırılır: 0,4 mm nozul en az ~0,8 mm basar, daha incesi kopar veya hiç basılmaz. 0 = kapalı.' },
+      { id: 'd-mingap', label: 'En dar ışık aralığı', unit: 'mm', min: 0, max: 2, step: 0.1, value: 0.5,
+        note: 'Bundan dar ışık aralıkları genişletilir; daha darı baskıda kapanır. İnce duvar kuralı önceliklidir. 0 = kapalı.' },
     ],
     print: [
-      { id: 'g-bedx', label: 'Tabla genişliği (X)', unit: 'mm', min: 100, max: 1000, step: 1, value: 256,
+      { id: 'g-bedx', label: 'Tabla genişliği (X)', unit: 'mm', min: 100, max: 1000, step: 1, value: 250,
         note: 'Yazıcınızın baskı alanı. Gövde ve kapak bu ölçülere göre tablaya yerleştirilir; sığmazsa uyarı verilir.' },
-      { id: 'g-bedy', label: 'Tabla derinliği (Y)', unit: 'mm', min: 100, max: 1000, step: 1, value: 256 },
-      { id: 'g-bedz', label: 'Baskı yüksekliği (Z)', unit: 'mm', min: 100, max: 1000, step: 1, value: 256 },
+      { id: 'g-bedy', label: 'Tabla derinliği (Y)', unit: 'mm', min: 100, max: 1000, step: 1, value: 250 },
+      { id: 'g-bedz', label: 'Baskı yüksekliği (Z)', unit: 'mm', min: 100, max: 1000, step: 1, value: 250 },
       { id: 'g-mount', type: 'select', label: 'Işık montajı', value: 'tube', options: [
         ['tube', 'Şeffaf tüp (önerilen — gölgede kolon çizgisi yok)'], ['cap', 'Ön kapak + LED yuvası (tüp gerekmez)']],
         note: 'Şeffaf tüp: tabandaki halkaya akrilik tüp takılır, LED tüpün tepesinde aşağı bakar. Duvar yalnızca siluetin olduğu yerde yükselir; siluet lambanın etrafını sarmalı.' },
@@ -67,7 +71,7 @@
       { id: 'g-labels', type: 'check', label: 'Montaj numaraları (panelde ve plakada kabartma)', value: true, showIf: () => $('g-mode').value === 'flat',
         note: 'Her panelin dış yüzüne, duvarın dolu bir yerine küçük kabartma numara basılır; plakada da her kenarın yanında aynı numara vardır. Panel N, plakadaki N kenarına gelir; numaranın altı panelin plakaya oturan kenarıdır, numara dışarıdan düz okunur.' },
       { id: 'g-layer', type: 'check', label: '0,2 mm destek katmanı (kopuk parçaları köprüsüz tutar)', value: false, showIf: () => $('g-mode').value === 'flat' },
-      { id: 'g-thickness', label: 'Duvar kalınlığı', unit: 'mm', min: 0.8, max: 5, step: 0.1, value: 1.6 },
+      { id: 'g-thickness', label: 'Duvar kalınlığı', unit: 'mm', min: 0.8, max: 5, step: 0.1, value: 2 },
       { id: 'g-plate', label: 'Taban kalınlığı', unit: 'mm', min: 1.5, max: 8, step: 0.5, value: 3 },
       { id: 'g-cap', label: 'Kapak kalınlığı', unit: 'mm', min: 1.2, max: 6, step: 0.2, value: 2.4, note: 'Tüp modunda tüpün tepesindeki LED kapağı.' },
       { id: 'g-seat', label: 'LED yuva çapı', unit: 'mm', min: 5, max: 60, step: 0.5, value: 20 },
@@ -77,6 +81,8 @@
       { id: 'l-color', type: 'color', label: 'LED rengi', value: '#ffc46e', swatches: [
         ['#ffb35c', 'Sıcak'], ['#ffc46e', 'Sıcak beyaz'], ['#fff1dc', 'Gün ışığı'], ['#cfe3ff', 'Soğuk'],
         ['#ff4b3e', 'Kırmızı'], ['#4c8dff', 'Mavi'], ['#4cd964', 'Yeşil'], ['#c77dff', 'Mor']] },
+      { id: 'l-emitter', label: 'LED yayıcı çapı', unit: 'mm', min: 0, max: 10, step: 0.5, value: 2,
+        note: 'LED\'in ışık veren yüzeyinin çapı (1 W / 3 W tek çipli LED: ~1–3 mm; COB çok daha büyük). Gerçek LED nokta değildir: gölge kenarları yumuşar, kesim ışığa yaklaştıkça (gölgenin dış kısımları) bulanıklık artar. Önizleme ve gölge uyumu bununla hesaplanır. 0 = ideal nokta ışık.' },
       { id: 'l-bright', label: 'Işık şiddeti', unit: '%', min: 10, max: 300, step: 5, value: 100 },
       { id: 'l-wall', type: 'color', label: 'Duvar rengi', value: '#efe9df', swatches: [
         ['#efe9df', 'Beyaz'], ['#a8a39b', 'Gri'], ['#e3cfae', 'Bej'], ['#b9cbe0', 'Açık mavi'], ['#3a3a3c', 'Antrasit']] },
@@ -260,7 +266,7 @@
   function printOpts(assembled) {
     return {
       mode: $('g-mode').value,
-      thickness: Math.max(0.8, numVal('g-thickness', 1.6)),
+      thickness: Math.max(0.8, numVal('g-thickness', 2)),
       plateThickness: numVal('g-plate', 3),
       capThickness: numVal('g-cap', 2.4),
       ledSeat: Math.max(5, numVal('g-seat', 20)),
@@ -271,7 +277,7 @@
       chamfer: $('g-chamfer').checked,
       labels: $('g-labels').checked,
       supportLayer: $('g-layer').checked,
-      bed: { x: Math.max(100, numVal('g-bedx', 256)), y: Math.max(100, numVal('g-bedy', 256)), z: Math.max(100, numVal('g-bedz', 256)) },
+      bed: { x: Math.max(100, numVal('g-bedx', 250)), y: Math.max(100, numVal('g-bedy', 250)), z: Math.max(100, numVal('g-bedz', 250)) },
       assembled,
     };
   }
@@ -351,6 +357,7 @@
     accEl.innerHTML = `<div class="acc-row"><span>Gölge uyumu</span><strong>%${pct} · ${word}</strong></div>`
       + `<div class="acc-bar"><i style="width:${Math.max(3, pct)}%"></i></div>`
       + `<div class="acc-detail">Kaybolan detay %${(acc.lost * 100).toFixed(1)} · fazladan gölge %${(acc.extra * 100).toFixed(1)}</div>`
+      + (acc.edge != null ? `<div class="acc-detail">Kenar (ince detay) uyumu %${Math.round(acc.edge * 100)} · kenarların %${Math.round(acc.soft * 100)}'i LED yarı gölgesinde bulanık</div>` : '')
       + detailLimitHtml();
     optBtn.hidden = pct >= 97;
     // Çok sayıda kopuk parça: köprüler gölgede çizgi bırakır → köprüsüz seçeneği öner.
@@ -478,85 +485,141 @@
     const minLine = 0.8;                                           // mm, ~2 × 0,4 mm nozul
     const near = minLine * Math.max(1, (r * 1.5) / r);
     const edge = minLine * (p.R / r);
+    // LED yayıcısının yarı gölgesi gölge kenarında: genişlik ≈ yayıcı · z / (cz − z).
+    let blurHtml = '';
+    const em = (p.look && p.look.emitter) || 0;
+    const inv = Projection.inverseShell(p.R, 0, field.shape, p.cz, p.margin);
+    if (em > 0 && inv && isFinite(inv.z) && inv.z < p.cz) {
+      const blur = em * 10 * inv.z / (p.cz - inv.z);
+      blurHtml = ` LED yarı gölgesi: gölge kenarında ~${blur.toFixed(0)} mm yumuşama (yayıcı ${(em * 10).toFixed(1)} mm).`;
+    }
     return `<div class="acc-detail">Basılabilir en ince detay: lamba yakınında ~${near.toFixed(1)} mm, gölge kenarında ~${edge.toFixed(0)} mm. `
-      + `Daha ince çizgiler kaybolur ya da kalınlaşır — gövdeyi büyütün veya gölge boyutunu küçültün.</div>`;
+      + `Daha ince çizgiler kaybolur ya da kalınlaşır — gövdeyi büyütün veya gölge boyutunu küçültün.${blurHtml}</div>`;
   }
 
   const sleep0 = () => new Promise((r) => setTimeout(r, 0));
+  // Detay için iyileştir: gövdenin genişliği ve yüksekliği (ürün ölçüsü) hiç
+  // değişmez. Ürünü değiştirmeyen baskı ayarları (detay seviyesi, desteksiz baskı,
+  // baskı şekli) ölçülüp kendiliğinden uygulanır. Ürünü değiştiren ama detayı en
+  // çok artıran ayarlar (derinlik, montaj, gölge boyutu, LED) her biri ölçülerek
+  // öneri olarak gösterilir: tek tek ya da hepsi birden uygulanabilir.
+  // Ölçüt ince detay ağırlıklı: kenar uyumu %70 + genel uyum %30.
   async function optimizeDetail() {
     const kind = $('s-shape').value;
-    const twoD = Shapes.CATALOG[kind].params.includes('H');
-    // Kutular mm, deneme ölçüleri cm (designer ile aynı birim).
-    const W0 = +$('s-W').value / 10, H0 = twoD ? +$('s-H').value / 10 : W0, d0 = +$('s-d').value / 10;
-    const bed = Math.min(numVal('g-bedx', 256), numVal('g-bedy', 256)), bedZ = numVal('g-bedz', 256), t = numVal('g-thickness', 1.6);
-    const before = designer.getAccuracy();
+    const bedZ = numVal('g-bedz', 250);
+    const pct = (x) => Math.round(x * 100);
+    const score = (acc) => (acc ? 0.7 * (acc.edge != null ? acc.edge : acc.iou) + 0.3 * acc.iou : -1);
+    const step = async (msg, vars) => { showStatus(`<strong>${I18n.t('Detay iyileştiriliyor…')}</strong> ${I18n.t(msg, vars)}`); await sleep0(); };
     optBtn.disabled = true;
-    const tries = [];
-    const factors = [1, 1.15, 1.3, 1.5, 1.75, 2, 2.4];
-    let best = null;
-    for (const fct of factors) {
-      const W = Math.min(40, Math.round(W0 * fct * 2) / 2), H = Math.min(40, Math.round(H0 * fct * 2) / 2);
-      const d = Math.min(25, Math.round(d0 * Math.sqrt(fct) * 2) / 2);
-      // Gövde tablaya sığmalı (çapraz ölçü yerine en/boy; şekiller sınır kutusuna sığar).
-      if (Math.max(W, H) * 10 + t > bed - 6 || d * 10 > bedZ - 6) break;
-      if (tries.some((x) => x.W === W && x.H === H && x.d === d)) continue;
-      showStatus(`<strong>Detay iyileştiriliyor…</strong> gövde ${W * 10} × ${(twoD ? H : W) * 10} × ${d * 10} mm deneniyor`);
-      await sleep0();
-      const acc = designer.evaluate({ shapeSpec: { W, H }, d });
-      if (!acc) break;
-      const tr = { W, H, d, acc, quality: $('g-quality').value };
-      tries.push(tr);
-      if (!best || acc.iou > best.acc.iou + 0.004) best = tr;
-      if (acc.iou >= 0.95) break;
-    }
-    // Hâlâ yetersizse çok yüksek detay seviyesini de dene.
-    if (best && best.acc.iou < 0.95 && $('g-quality').value !== 'ultra') {
-      showStatus('<strong>Detay iyileştiriliyor…</strong> çok yüksek detay seviyesi deneniyor');
-      await sleep0();
-      const acc = designer.evaluate({ shapeSpec: { W: best.W, H: best.H }, d: best.d, maxCells: 650000 });
-      if (acc && acc.iou > best.acc.iou + 0.005) best = Object.assign({}, best, { acc, quality: 'ultra' });
-    }
-    // Baskı şekli de detayı etkiler: dik desteksiz baskıda ince çıkıntıların
-    // altına çatı eklenir. Aynı boyutta alternatif baskı şekillerini de dene.
-    let printChoice = null;
-    if (best) {
-      const base = { shapeSpec: { W: best.W, H: best.H }, d: best.d, maxCells: best.quality === 'ultra' ? 650000 : undefined };
-      const cands = [];
-      if ($('g-mode').value === 'onepiece' && $('g-supportfree').checked) {
-        cands.push({ key: 'supports', label: 'tek parça, dilimleyici desteğiyle', o: { supportFree: false } });
+    try {
+      await step('mevcut tasarım ölçülüyor');
+      const cur = designer.evaluate({});
+      if (!cur) { showStatus(I18n.t('Önce bir silüet yükleyin.')); return; }
+
+      // 1) Ürünü değiştirmeyen baskı ayarları: daha iyiyse uygulanır.
+      const auto = {};
+      const autoNotes = [];
+      let best = cur;
+      const tryAuto = async (msg, o, gain, note) => {
+        await step(msg);
+        const acc = designer.evaluate(Object.assign({}, auto, o));
+        if (acc && score(acc) > score(best) + gain) { Object.assign(auto, o); best = acc; autoNotes.push(I18n.t(note)); return true; }
+        return false;
+      };
+      const applied = [];
+      if ($('g-mode').value === 'onepiece' && $('g-supportfree').checked
+        && await tryAuto('desteksiz baskı kapatılarak deneniyor', { supportFree: false }, 0.003, 'desteksiz baskı kapatıldı (dilimleyicide destek açın; sarkma çatıları gölgeyi bozuyordu)')) {
+        applied.push(() => { $('g-supportfree').checked = false; });
       }
-      if (Shapes.CATALOG[kind].faceted && !($('g-mode').value === 'flat' && $('g-layer').checked)) {
-        cands.push({ key: 'flat', label: 'düz paneller + 0,2 mm katman (desteksiz ve köprüsüz)', o: { mode: 'flat', supportLayer: true, supportFree: false } });
+      if ($('g-quality').value !== 'ultra'
+        && await tryAuto('çok yüksek detay seviyesi deneniyor', { maxCells: 650000 }, 0.004, 'detay seviyesi "Çok yüksek"')) {
+        applied.push(() => { $('g-quality').value = 'ultra'; });
       }
-      for (const cd of cands) {
-        showStatus(`<strong>Detay iyileştiriliyor…</strong> baskı şekli deneniyor: ${cd.label}`);
-        await sleep0();
-        const acc = designer.evaluate(Object.assign({}, base, cd.o));
-        if (acc && acc.iou > best.acc.iou + 0.02 && (!printChoice || acc.iou > printChoice.acc.iou)) printChoice = Object.assign({}, cd, { acc });
+      if (Shapes.CATALOG[kind].faceted && !($('g-mode').value === 'flat' && $('g-layer').checked)
+        && await tryAuto('baskı şekli deneniyor: düz paneller + 0,2 mm katman', { mode: 'flat', supportLayer: true, supportFree: false }, 0.02,
+          'baskı şekli: düz paneller + 0,2 mm katman (desteksiz ve köprüsüz)')) {
+        applied.push(() => { $('g-mode').value = 'flat'; $('g-layer').checked = true; });
       }
-    }
-    optBtn.disabled = false;
-    if (!best) { showStatus('Önce bir silüet yükleyin.'); return; }
-    $('s-W').value = Math.round(best.W * 10);
-    if (twoD) $('s-H').value = Math.round(best.H * 10);
-    $('s-d').value = Math.round(best.d * 10);
-    $('g-quality').value = best.quality;
-    if (printChoice) {
-      if (printChoice.key === 'supports') $('g-supportfree').checked = false;
-      if (printChoice.key === 'flat') { $('g-mode').value = 'flat'; $('g-layer').checked = true; }
+
+      // 2) Öneriler: her biri tek başına ölçülür.
+      const p = designer.getParams();
+      const d0 = p.d, R0 = p.R, em0 = (p.look && p.look.emitter) || 0;
+      const sugg = [];
+      const trySugg = async (msg, o, label, apply) => {
+        await step(msg);
+        const acc = designer.evaluate(Object.assign({}, auto, o));
+        if (acc && score(acc) > score(best) + 0.008) sugg.push({ o, label, apply, acc });
+      };
+      // Derinlik: ışık duvardan uzaklaştıkça gölgenin radyal büyütmesi azalır.
+      const maxD = Math.min(25, Math.floor((bedZ - 12) / 5) / 2);
+      let bestD = null;
+      for (const f of [1.5, 2, 2.5]) {
+        const d = Math.min(maxD, Math.round(d0 * f * 2) / 2);
+        if (d <= d0 + 0.4 || (bestD && d <= bestD.d)) continue;
+        await step('derinlik {0} mm deneniyor', [d * 10]);
+        const acc = designer.evaluate(Object.assign({}, auto, { d }));
+        if (acc && (!bestD || score(acc) > score(bestD.acc) + 0.004)) bestD = { d, acc };
+      }
+      if (bestD && score(bestD.acc) > score(best) + 0.008) {
+        sugg.push({ o: { d: bestD.d }, acc: bestD.acc, label: I18n.t('Derinlik <strong>{0} mm</strong> (genişlik aynı; ışık duvardan uzaklaşınca gölge daha az büyür)', [bestD.d * 10]),
+          apply: () => { $('s-d').value = Math.round(bestD.d * 10); } });
+      }
+      if (mount() === 'cap') {
+        await trySugg('şeffaf tüp montajı deneniyor', { mount: 'tube' }, I18n.t('Şeffaf tüp montajı (ön çember ve destek kolonu gölgede çizgi bırakmaz)'),
+          () => { $('g-mount').value = 'tube'; });
+      }
+      let bestR = null;
+      for (const f of [0.85, 0.75]) {
+        const R = Math.max(20, Math.round(R0 * f / 2) * 2);
+        if (R >= R0) continue;
+        await step('gölge boyutu {0} cm deneniyor', [R]);
+        const acc = designer.evaluate(Object.assign({}, auto, { R }));
+        if (acc && (!bestR || score(acc) > score(bestR.acc) + 0.004)) bestR = { R, acc };
+      }
+      if (bestR && score(bestR.acc) > score(best) + 0.008) {
+        sugg.push({ o: { R: bestR.R }, acc: bestR.acc, label: I18n.t('Gölge boyutu <strong>{0} cm</strong> (gölge biraz küçülür, kenarlar çok daha keskin)', [bestR.R]),
+          apply: () => { $('d-R').value = bestR.R; } });
+      }
+      if (em0 > 0.1) {
+        // LED kenar konumunu değil keskinliği değiştirir: bulanık kenar oranına göre önerilir.
+        await step('daha küçük LED deneniyor');
+        const acc = designer.evaluate(Object.assign({}, auto, { look: { emitter: 0.1 } }));
+        if (acc && acc.soft < best.soft - 0.08) {
+          sugg.push({ o: { look: { emitter: 0.1 } }, acc,
+            label: I18n.t('Yayıcısı <strong>≤ 1 mm</strong> olan LED (tek çip, kubbesiz/küçük lensli; COB kullanmayın). Önizlemede "LED yayıcı çapı" 1 mm yapılır — gerçekte de böyle bir LED takın'),
+            apply: () => { $('l-emitter').value = 1; } });
+        }
+      }
+
+      // Uygulananları göster, önerileri birlikte ölç.
+      applied.forEach((f) => f());
       updateVisibility();
-      best = Object.assign({}, best, { acc: printChoice.acc });
+      recomputeAll();
+      let html = autoNotes.length
+        ? I18n.t('<strong>Detay iyileştirildi</strong> (genişlik ve yükseklik aynı): {0}. Kenar uyumu %{1} → %{2}.', [autoNotes.join(', '), pct(cur.edge), pct(best.edge)])
+        : I18n.t('<strong>Baskı ayarları zaten en iyi durumda</strong> (kenar uyumu %{0}, gövde ölçüsü değişmedi).', [pct(best.edge)]);
+      if (sugg.length) {
+        await step('önerilerin hepsi birlikte deneniyor');
+        const all = designer.evaluate(Object.assign({}, auto, ...sugg.map((x) => x.o)));   // look tek öneriden gelir
+        html += '<br>' + I18n.t('<strong>Daha fazla detay için</strong> (gövdenin genişliği ve yüksekliği değişmez):') + '<ul class="opt-list">'
+          + sugg.map((x, i) => `<li>${x.label}: ${I18n.t('kenar uyumu %{0} → %{1}, bulanık kenar %{2} → %{3}', [pct(best.edge), pct(x.acc.edge), pct(best.soft), pct(x.acc.soft)])} <button class="small" data-opt="${i}">${I18n.t('Uygula')}</button></li>`).join('')
+          + '</ul>'
+          + (all ? `${I18n.t('Hepsi birlikte: kenar uyumu <strong>%{0}</strong>, bulanık kenar %{1}.', [pct(all.edge), pct(all.soft)])} <button class="small primary" data-opt="all">${I18n.t('Hepsini uygula')}</button>` : '');
+      } else if (best.edge < 0.9) {
+        html += `<br><span class="warn">${I18n.t('⚠ Daha fazlası için siluetteki çok ince çizgileri editörde "Kalınlaştır" ile belirginleştirin.')}</span>`;
+      }
+      showStatus(html);
+      document.querySelectorAll('[data-opt]').forEach((btn) => btn.addEventListener('click', () => {
+        const list = btn.dataset.opt === 'all' ? sugg : [sugg[+btn.dataset.opt]];
+        list.forEach((x) => x.apply());
+        updateVisibility();
+        recomputeAll();
+        btn.disabled = true;
+        btn.textContent = I18n.t('Uygulandı');
+      }));
+    } finally {
+      optBtn.disabled = false;
     }
-    recomputeAll();
-    // "Önce" aynı yöntemle ölçülmüş ilk deneme (mevcut gövde) — tutarlı karşılaştırma.
-    const first = tries.length ? tries[0].acc : before;
-    const b = first ? Math.round(first.iou * 100) : null;
-    const a = Math.round(best.acc.iou * 100);
-    showStatus(`<strong>Detay iyileştirildi:</strong> gövde ${best.W} × ${twoD ? best.H : best.W} × ${best.d} cm`
-      + (best.quality === 'ultra' ? ', detay seviyesi "Çok yüksek"' : '')
-      + (printChoice ? `, baskı şekli: <strong>${printChoice.label}</strong> (dik desteksiz baskı ince çıkıntıların altına dolgu ekleyip detayı bozuyordu)` : '')
-      + `. Gölge uyumu ${b != null ? '%' + b + ' → ' : ''}%${a}.`
-      + (a < 95 ? '<br><span class="warn">⚠ Daha fazlası için siluetteki çok ince çizgileri editörde "Kalınlaştır" ile belirginleştirin veya gölge boyutunu küçültün.</span>' : ''));
   }
   optBtn.addEventListener('click', optimizeDetail);
 

@@ -24,6 +24,8 @@ WallField.smoothSampler(rgba, N, R, outside, sd?) // → sample(X, Y) over [-R, 
 | `ribs`, `ribWidth` | count, cm | support ribs (cap mount only; ignored with `openTop`) |
 | `cornerPosts` | bool | solid strips at polygon vertices (flat panels + cap) |
 | `minHole` | cm² | fill lit components smaller than this |
+| — | — | `WallField.litFraction(field, X, Y, emitterCm)` → lit fraction 0..1 with a disk LED emitter (null behind the body); see ARCHITECTURE "Real light". |
+| `minWall`, `minGap` | mm | printable widths (UI: `d-minwall` 0.8, `d-mingap` 0.5; 0 = off). Local thickness per vertex from sub-cell horizontal/vertical runs, `t = 1/√(1/h² + 1/v²)` (exact for a straight strip at any angle); for each run thinner than the limit a disk of diameter = limit is drawn on the strip's centre line, written as a signed-distance ramp so the 0.5 contour lands on the disk edge even on a coarse grid. Gaps first, then walls (strength wins). Bands excluded. `stats.thickened` / `stats.widened` count the drawn disks. |
 | `minIsland` | cm² | default 0.005; smaller solid islands are deleted, bigger ones bridged |
 | `openTop` | bool | tube mount: `F = 1` above `zTop` |
 | `keepIslands` | bool | flat + 0.2 mm layer: skip bridging |

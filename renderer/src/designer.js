@@ -184,8 +184,8 @@
       const d = num('s-d', 60) / 10;
       const shapeSpec = {
         kind: (document.getElementById('s-shape') || {}).value || 'square',
-        W: num('s-W', 150) / 10,
-        H: num('s-H', 150) / 10,
+        W: num('s-W', 130) / 10,
+        H: num('s-H', 130) / 10,
         N: num('s-N', 6),
         A: num('s-A', 50) / 100,
         taper: num('s-taper', 0) / 100,
@@ -203,6 +203,8 @@
         ribs: num('d-ribs', 3),
         ribWidth: num('d-ribw', 1.2) / 10,
         minHole: num('d-minhole', 2) / 100,
+        minWall: num('d-minwall', 0.8),
+        minGap: num('d-mingap', 0.5),
         plate: num('g-plate', 3),
         maxCells: QUALITY_CELLS[val('g-quality', 'high')] || QUALITY_CELLS.high,
         mode: val('g-mode', 'onepiece'),
@@ -214,6 +216,7 @@
           brightness: num('l-bright', 100),
           wallColor: val('l-wall', '#efe9df'),
           wallSize: num('l-wallsize', 240),
+          emitter: Math.max(0, num('l-emitter', 2)) / 10,     // LED yayıcı çapı (cm); 0 = nokta
         },
         outsideLit,
       };
@@ -281,6 +284,8 @@
         // Köşe direkleri yalnızca ön çemberi taşımak için (kapak montajı); tüpte paneller tabana yapıştırılır.
         cornerPosts: p.mode === 'flat' && shape.faceted && p.mount === 'cap',
         minHole: p.minHole,
+        minWall: p.minWall,
+        minGap: p.minGap,
         openTop: p.mount === 'tube',
         keepIslands: p.mode === 'flat' && shape.faceted && p.supportLayer,
         // Düz panel: adalar her panelin kendi içinde köprülenir (köşeden bağlantı kesimde kopar).
@@ -343,6 +348,8 @@
         if (field.stats.bridges) parts.push(`${field.stats.bridges} kopuk parça ince köprüyle bağlandı`);
         if (field.stats.islandsRemoved) parts.push(`${field.stats.islandsRemoved} kırıntı temizlendi`);
         if (field.stats.holesFilled) parts.push(`${field.stats.holesFilled} iğne deliği dolduruldu`);
+        if (field.stats.thickened) parts.push(`${field.stats.thickened} ince duvar kalınlaştırıldı`);
+        if (field.stats.widened) parts.push(`${field.stats.widened} dar aralık genişletildi`);
         if (field.stats.roofArea > 0.01) parts.push(`desteksiz baskı için ${(field.stats.roofArea * 100).toFixed(0)} mm² 45° çatı`);
         st.textContent = parts.join(' · ');
         if (field.stats.rimFloating) {
@@ -371,7 +378,9 @@
       const shape = field.shape;
       const E = wallExtent(p);
       // Duvar büyüdükçe çözünürlük de artar (gölge alanındaki piksel boyu korunur, üst sınırlı).
-      const res = Math.min(1600, Math.max(SIM_RES, Math.round((SIM_RES * E) / p.R)));
+      // Yayıcı varsa yarı gölge kenarları zaten yumuşak: daha düşük çözünürlük yeter (her piksel çok örnekli).
+      const base = p.look.emitter > 0 ? Math.round(SIM_RES * 0.75) : SIM_RES;
+      const res = Math.min(1600, Math.max(base, Math.round((base * E) / p.R)));
       if (refs.sim.width !== res) { refs.sim.width = res; refs.sim.height = res; }
       const w = res, h = res;
       const img = sctx.createImageData(w, h);
@@ -385,6 +394,8 @@
         const inv = Projection.inverseShell(X, Y, shape, p.cz, p.margin);
         return { inv, lit: !!inv && !inv.blocked && WallField.sampleField(field, inv.s, inv.z) > 0.5 };
       };
+      // Oda dokusu: gerçek LED yayıcısıyla aydınlanma oranı (yarı gölge).
+      const emitter = p.look.emitter || 0;
 
       // Oda dokusu: [-E, E]² (gölge alanının dışında da lamba duvarı aydınlatır).
       for (let py = 0; py < h; py++) {
@@ -393,11 +404,12 @@
           const X = ((px + 0.5) / w - 0.5) * 2 * E;
           const i = (py * w + px) * 4;
           let r = dark[0], g = dark[1], b = dark[2];
-          if (litAt(X, Y).lit) {
+          const frac = WallField.litFraction(field, X, Y, emitter) || 0;
+          if (frac > 0) {
             const rho = Math.hypot(X, Y);
             const fall = 1 / (1 + Math.pow(rho / near, 1.6));
             const edge = Math.max(0, Math.min(1, (E - rho) / (0.3 * E)));
-            const k = Math.min(1.2, gain * fall) * edge * edge * (3 - 2 * edge);
+            const k = Math.min(1.2, gain * fall) * edge * edge * (3 - 2 * edge) * frac;
             r += lit[0] * k; g += lit[1] * k; b += lit[2] * k;
           }
           img.data[i] = Math.min(255, r);
@@ -440,21 +452,35 @@
     function measureAccuracy(field, p, A) {
       const res = A || 640;
       const sample = makeSampler(p);
-      const shape = field.shape;
-      let inter = 0, uni = 0, lost = 0, extra = 0, target = 0;
+      // Kenar (detay) uyumu: yalnızca hedefin gölge kenarına 4 mm'den yakın noktalar.
+      // Genel uyum büyük dolu alanlarla şişer; ince detay kenar bandında yaşar.
+      // Bulanık: kenar bandının LED yarı gölgesinde kalan (%10–90 aydınlık) oranı.
+      const sd = targetSD(currentTargetData);
+      const toT = makeWallToTarget(p);
+      const band = (0.4 * N) / (2 * p.R);
+      let inter = 0, uni = 0, lost = 0, extra = 0, target = 0, eI = 0, eU = 0, eN = 0, eSoft = 0;
       for (let py = 0; py < res; py++) {
         const Y = (0.5 - (py + 0.5) / res) * 2 * p.R;
         for (let px = 0; px < res; px++) {
           const X = ((px + 0.5) / res - 0.5) * 2 * p.R;
-          const inv = Projection.inverseShell(X, Y, shape, p.cz, p.margin);
-          if (!inv) continue;                                    // gövdenin arkası
+          // Gerçek LED (yayıcı çaplı) ile: yarı gölgenin ortası (aydınlanma < %50) gölge sayılır.
+          const frac = WallField.litFraction(field, X, Y, (p.look && p.look.emitter) || 0);
+          if (frac == null) continue;                            // gövdenin arkası
           const t = sample(X, Y) < 0.5;
-          const sdark = inv.blocked || WallField.sampleField(field, inv.s, inv.z) <= 0.5;
+          const sdark = frac < 0.5;
           if (t) target++;
           if (t && sdark) inter++;
           if (t || sdark) uni++;
           if (t && !sdark) lost++;
           if (!t && sdark) extra++;
+          const tt = toT(X, Y);
+          const u = Math.round(((tt[0] / p.R) * 0.5 + 0.5) * N - 0.5), v = Math.round((0.5 - (tt[1] / p.R) * 0.5) * N - 0.5);
+          if (u >= 0 && v >= 0 && u < N && v < N && Math.abs(sd[v * N + u]) < band) {
+            eN++;
+            if (t && sdark) eI++;
+            if (t || sdark) eU++;
+            if (frac > 0.1 && frac < 0.9) eSoft++;
+          }
         }
       }
       if (target < res * res * 0.002) return null;   // silüet yok
@@ -462,13 +488,17 @@
         iou: uni ? inter / uni : 1,
         lost: target ? lost / target : 0,
         extra: target ? extra / target : 0,
+        edge: eU ? eI / eU : 1,
+        soft: eN ? eSoft / eN : 0,
       };
     }
 
     /** Optimize edici için: verilen gövde ayarlarıyla (hızlı) alan + uyum. */
     function evaluate(overrides) {
-      const p = Object.assign({}, readParams(), overrides);
-      p.shapeSpec = Object.assign({}, readParams().shapeSpec, overrides.shapeSpec || {});
+      const base = readParams();
+      const p = Object.assign({}, base, overrides);
+      p.shapeSpec = Object.assign({}, base.shapeSpec, overrides.shapeSpec || {});
+      p.look = Object.assign({}, base.look, overrides.look || {});
       p.cz = (num('s-lightz', 90) / 100) * p.d;
       const field = computeField(p);
       // Gösterge ile aynı çözünürlük: ince detaylı silüetlerde ölçüm çözünürlüğe çok duyarlı.
@@ -518,7 +548,8 @@
     document.getElementById('image-cancel').onclick = cancelCrop;
     document.getElementById('clear').onclick = () => { outsideLit = true; clearTarget(); recompute(); };
 
-    ['d-R', 'd-rot', 'd-offx', 'd-offy', 'd-margin', 'd-ribs', 'd-ribw', 'd-minhole', 'g-plate', 'g-quality', 'g-mount', 'g-layer', 'g-supportfree'].forEach((id) => {
+    // l-emitter alanı değiştirmez ama gölge uyumunu değiştirir: tam yeniden hesap.
+    ['l-emitter', 'd-R', 'd-rot', 'd-offx', 'd-offy', 'd-margin', 'd-ribs', 'd-ribw', 'd-minhole', 'd-minwall', 'd-mingap', 'g-plate', 'g-quality', 'g-mount', 'g-layer', 'g-supportfree'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', recompute);
     });

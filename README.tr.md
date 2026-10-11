@@ -15,7 +15,7 @@ Bir **fotoğrafı duvara asılan bir gölge lambasına** dönüştüren masaüst
 - **Tek tıkla fotoğraf → siluet:** hızlı (düz arka plan), yapay zekayla arka plan kaldırma ya da saç, göz ve sakalı koruyan ayrıntılı portre.
 - **İstediğiniz gövde şekli:** kare, dikdörtgen, yuvarlak köşeli, silindir, çokgen, yıldız, çiçek, kalp; daralma ve ayarlanabilir derinlik.
 - **Ne görüyorsanız o basılır:** Karanlık Oda önizlemesi, açılmış duvar şeridi ve uyum puanı, dışa aktarılan geometrinin kendisinden hesaplanır.
-- **Gölge uyumu** puanı, gerçek gölgenin silüete ne kadar benzeyeceğini söyler; **Detay için iyileştir** boyutu, detay seviyesini ve baskı şeklini sizin için ayarlar.
+- **Gölge uyumu** puanı, gerçek gölgenin silüete ne kadar benzeyeceğini söyler; **Detay için iyileştir** detay seviyesini ve baskı şeklini sizin için ayarlar (gövde ölçünüz korunur).
 - **Baskıya hazır mesh:** su geçirmez, havada parça yok, tablanıza sığar (sığmazsa uyarır); tek parça dik baskı ya da yapıştırılan düz paneller.
 - **Dahili siluet editörü** (fırça, şekil, metin, katman, simetri, geri al) ve logo/çizimler için **görsel dönüştürücü**.
 - **Dışa aktarma:** STL, 3MF, OBJ, FBX, PLY, GLB; dönüştürücüden SVG/PNG.
@@ -52,8 +52,8 @@ Kurulum dosyası mı istiyorsunuz? `npm run build:win`, `npm run build:mac` veya
 | Baskı şekli | Tek parça (dik) | Gövdeyi dik basın ve **dilimleyicide desteği açın** (Cura / PrusaSlicer / Bambu Studio; *tree* destekler en kolay sökülür). |
 | Desteksiz baskı | **Kapalı** | Yalnızca küçük, toplu silüetlerde açın. Sarkan yerlerin altına küçük çatılar ekler; lambadan uzakta duvarda testere dişi gibi görünür. |
 | Düz paneller | – | Çokgen gövdeler için: her kenar desteksiz, yatık basılır, sonra yapıştırılır. Çok ince detayda iyi sonuç verir. |
-| Duvar kalınlığı | 1,6 mm | Kalın olan daha sağlamdır; en az 0,8 mm. |
-| Tabla X / Y / Z | 256 mm | Yazıcınızın baskı alanını girin; gövde sığmazsa tabla görünümü uyarır. |
+| Duvar kalınlığı | 2 mm | Kalın olan daha sağlamdır; en az 0,8 mm. |
+| Tabla X / Y / Z | 250 mm | Yazıcınızın baskı alanını girin; gövde sığmazsa tabla görünümü uyarır. |
 
 - **Malzeme:** ışık geçirmeyen, koyu renkli PLA veya PETG en iyi sonucu verir (beyaz ya da yarı saydam filament ışığı duvardan geçirir).
 - **Işık:** küçük, tek çipli bir LED (1–3 W, sıcak beyaz, ≥ 120°); bkz. [Hangi ışık?](#hangi-ışık). Ampuller bulanık gölge verir.
@@ -101,7 +101,10 @@ Hepsi paketteki `zoro.json` örneği ve varsayılan ayarlarla alındı.
 - **Gölge uyumu.** Lambanın gerçekten düşüreceği gölgenin siluete ne kadar uyduğunu (IoU), ayrıca kaybolan detayı, fazladan gölgeyi ve lambanın yakınında ve gölge kenarında basılabilecek en ince detayı gösterir.
   - Neden bir sınır var: duvardaki bir ayrıntı lamba duvarında t = ρ/r oranında küçülür ve yazıcı ~0,8 mm'den çok daha ince çizgileri basamaz.
 - **Detay için iyileştir.**
-  - Gövdeyi tabla sınırı içinde büyütür ve "Çok yüksek" seviyesini dener.
+  - Gövdenin genişliğine ve yüksekliğine hiç dokunmaz. Ürünü değiştirmeyen baskı ayarlarını kendisi uygular (çatılar bozuyorsa desteksiz baskıyı kapatır, "Çok yüksek", düz paneller).
+  - Detayı en çok artıran ayarları ölçüp kazancıyla önerir; her biri **Uygula** ile (ya da **Hepsini uygula**): daha fazla derinlik (ışık duvardan uzaklaşınca gölge daha az büyür), şeffaf tüp montajı, biraz daha küçük gölge, yayıcısı ≤ 1 mm LED.
+- **LED yayıcı çapı** (Karanlık Oda ayarları, varsayılan 2 mm): önizleme ve puan gerçek, disk şeklinde bir LED ile hesaplanır; gölge kenarları gerçekteki gibi yumuşar (gölgenin dışına doğru daha fazla). Puan kutusu **kenar (ince detay) uyumunu** ve bulanık kenar oranını da gösterir.
+- Delik kenarları ışık ışınları boyunca kesilir; duvar kalınlığı gölgeyi daraltmaz.
   - Baskı şekillerini de karşılaştırır: dik desteksiz, dik ve dilimleyici desteğiyle, düz paneller + 0,2 mm katman.
   - En iyi uyumu veren birleşimi seçer ve nedenini açıklar. Çok ayrıntılı çizimlerde genelde düz paneller kazanır, çünkü ne çatı ne köprü gerektirir.
 
@@ -190,7 +193,7 @@ Başarılı kayıtları 5 saniyelik yeşil bir "Kaydedildi" bildirimi onaylar.
 
 ## Çıktı
 
-- **Lamba modeli** (biçim menüsü + `İndir` ya da **Dosya → Farklı biçimde indir**). Parçalar: `shell` veya `panel-N`, `base-plate`, `cap`, `cap-lip`, `led-tube`, `led-cup` (tüp montajında: `tube-holder`, `tube-cap…`). Duvar kalınlığı varsayılan 1,6 mm. Seçilen biçim hatırlanır. Her indirme **ışık parçalarının** (LED kapağı / ışık çubuğu, tüp tutucu) dahil edilip edilmeyeceğini sorar; **varsayılan olarak dışarıda bırakılırlar**; Unity, Blender vb. programlara aktarırken istenen de budur.
+- **Lamba modeli** (biçim menüsü + `İndir` ya da **Dosya → Farklı biçimde indir**). Parçalar: `shell` veya `panel-N`, `base-plate`, `cap`, `cap-lip`, `led-tube`, `led-cup` (tüp montajında: `tube-holder`, `tube-cap…`). Duvar kalınlığı varsayılan 2 mm. Seçilen biçim hatırlanır. Her indirme **ışık parçalarının** (LED kapağı / ışık çubuğu, tüp tutucu) dahil edilip edilmeyeceğini sorar; **varsayılan olarak dışarıda bırakılırlar**; Unity, Blender vb. programlara aktarırken istenen de budur.
   - **STL**: ikili, mm, Z yukarı — her dilimleyici açar.
   - **3MF**: mm, Z yukarı; her parça ayrı nesne, tek bir montaj nesnesinin bileşenleri olarak gruplanır (Bambu Studio, PrusaSlicer, Cura).
   - **OBJ**: metin, mm, Z yukarı, her parça için bir `o`.

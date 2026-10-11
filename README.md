@@ -15,7 +15,7 @@ Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the
 - **Photo → silhouette** in one click: quick (plain background), AI background removal, or a detailed portrait that keeps hair, eyes and beard.
 - **Any body shape:** square, rectangle, rounded rectangle, cylinder, polygon, star, flower, heart; with taper and adjustable depth.
 - **What you see is what you print:** the dark-room preview, the wall strip and the accuracy score all use the exact geometry that gets exported.
-- **Shadow match score (Gölge uyumu)** tells you how close the real shadow will be to your silhouette, and **Detay için iyileştir** tunes size, detail level and print mode for you.
+- **Shadow match score (Gölge uyumu)** tells you how close the real shadow will be to your silhouette, and **Detay için iyileştir** tunes the detail level and print mode for you (your body size is kept).
 - **Print-ready meshes:** watertight, nothing floating, fits your printer bed (warns if not); one-piece upright print or flat glued panels.
 - **Built-in silhouette editor** (brushes, shapes, text, layers, symmetry, undo) and an **image converter** for logos and drawings.
 - **Exports** STL, 3MF, OBJ, FBX, PLY, GLB, plus SVG/PNG from the converter.
@@ -52,8 +52,8 @@ If `npm start` fails, see [Troubleshooting](#troubleshooting).
 | Baskı şekli (print mode) | Tek parça (one piece, upright) | Print upright with **supports enabled in your slicer** (Cura / PrusaSlicer / Bambu Studio; *tree* supports are easiest to remove). |
 | Desteksiz baskı (support-free) | **Off** | Turn on only for compact silhouettes. It adds small roofs under overhangs; far from the lamp they show as saw teeth on the wall. |
 | Düz paneller (flat panels) | – | For polygon bodies: each side prints flat without supports, then you glue them. Good for very fine detail. |
-| Duvar kalınlığı (wall) | 1.6 mm | Thicker is sturdier; the minimum is 0.8 mm. |
-| Tabla X / Y / Z | 256 mm | Set your printer's build volume; the bed view warns if the body doesn't fit. |
+| Duvar kalınlığı (wall) | 2 mm | Thicker is sturdier; the minimum is 0.8 mm. |
+| Tabla X / Y / Z | 250 mm | Set your printer's build volume; the bed view warns if the body doesn't fit. |
 
 - **Material:** opaque, dark PLA or PETG works best (white or translucent filament lets light through the walls).
 - **Light:** a small single-chip LED (1–3 W, warm white, ≥ 120°), see [Which light?](#which-light). Bulbs give blurry shadows.
@@ -101,7 +101,10 @@ All taken with the bundled `zoro.json` sample and default settings.
 - **Gölge uyumu.** Shows how well the shadow the lamp will actually cast matches the silhouette (IoU), plus lost detail, extra shadow, and the finest printable detail near the lamp and at the shadow edge.
   - Why there is a limit: a feature on the wall shrinks by t = ρ/r on the lamp wall, and the printer can't print lines much thinner than ~0.8 mm.
 - **Detay için iyileştir.**
-  - Enlarges the body within the bed limit and tries the "Çok yüksek" level.
+  - Never changes the body's width and height. Applies print-only settings itself (support-free off when roofs hurt, "Çok yüksek", flat panels).
+  - Measures and suggests the big levers, each with its gain and an **Uygula** button (or **Hepsini uygula**): more depth (the light further from the wall magnifies the shadow less), transparent tube mount, a slightly smaller shadow, an LED with a ≤ 1 mm emitter.
+- **LED yayıcı çapı** (Karanlık Oda settings, default 2 mm): the preview and the score use a real disk-shaped LED, so shadow edges soften like in real life (more towards the outer shadow). The score box also shows the **edge (fine detail) match** and how many edges are blurred.
+- Hole walls are cut along the light rays, so wall thickness does not narrow the shadow.
   - Also compares print modes: upright support-free, upright with slicer supports, and flat panels + 0.2 mm layer.
   - Picks the combination with the best match and explains the choice. For very detailed art, flat panels usually win, because they need neither roofs nor bridges.
 
@@ -191,7 +194,7 @@ A green "Saved" toast confirms successful writes for 5 seconds.
 
 ## Output
 
-- **Lamp model** (format menu + `İndir`, or **Dosya → Farklı biçimde indir**). Pieces: `shell` or `panel-N`, `base-plate`, `cap`, `cap-lip`, `led-tube`, `led-cup` (tube mount: `tube-holder`, `tube-cap…`). Wall thickness defaults to 1.6 mm. The chosen format is remembered. Every download asks whether to include the **light parts** (LED cap / light bar, tube holder); they are **left out by default**, which is what you want when importing into Unity, Blender, etc.
+- **Lamp model** (format menu + `İndir`, or **Dosya → Farklı biçimde indir**). Pieces: `shell` or `panel-N`, `base-plate`, `cap`, `cap-lip`, `led-tube`, `led-cup` (tube mount: `tube-holder`, `tube-cap…`). Wall thickness defaults to 2 mm. The chosen format is remembered. Every download asks whether to include the **light parts** (LED cap / light bar, tube holder); they are **left out by default**, which is what you want when importing into Unity, Blender, etc.
   - **STL**: binary, mm, Z up — every slicer opens it.
   - **3MF**: mm, Z up; one object per piece, grouped as components of one assembly object (Bambu Studio, PrusaSlicer, Cura).
   - **OBJ**: text, mm, Z up, one `o` per piece.

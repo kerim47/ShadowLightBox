@@ -28,6 +28,7 @@
    *   cornerPosts,                     // force solid strips at polygon vertices
    *   panels,                          // flat panels: bridge islands per facet (no wrap across corners)
    *   minHole,                         // fill light holes smaller than this (cm²)
+   *   minWall, minGap,                 // printable widths (mm): thicken thinner wall strips, widen narrower light gaps
    * }
    */
   function compute(opts) {
@@ -68,7 +69,8 @@
     let g = opts.grid;
     if (!g) {
       const budget = opts.maxCells || 180000;
-      g = 0.04;
+      // 0,2 mm'den başlar: büyük gövdede bütçe hücreyi büyütür, "Çok yüksek" gerçekten incelir.
+      g = 0.02;
       while (colsFor(g) * rowsFor(g).length > budget && g < 1) g *= 1.06;
     }
 
@@ -125,6 +127,135 @@
           stats.holesFilled++;
         }
       });
+    }
+
+    // ---- basılabilir kalınlık: ince duvar şeritleri ve dar ışık aralıkları ----
+    // Yazıcı (0,4 mm nozul) 0,8 mm'den ince duvarı basamaz/kırar, çok dar ışık
+    // aralığını da kapatır. Her noktada yatay (h) ve dikey (v) koşu uzunluğu,
+    // 0,5 geçişleri alt hücre hassasiyetinde hesaplanarak mm cinsinden ölçülür;
+    // düz bir şeridin gerçek genişliği t = 1/√(1/h² + 1/v²)'dir (açısından
+    // bağımsız). Eşiğin altındaki noktaların çevresi elips fırçayla boyanır.
+    // Önce aralıklar genişletilir, sonra duvarlar kalınlaştırılır (sağlamlık öncelikli).
+    // Bantlar (taban, ışığın önü) hariç tutulur.
+    const minWallMM = opts.minWall != null ? opts.minWall : 0;
+    const minGapMM = opts.minGap != null ? opts.minGap : 0;
+    stats.thickened = 0;
+    stats.widened = 0;
+    if (minWallMM > 0 || minGapMM > 0) {
+      const sMM = (c) => colS[c] * 10;
+      const editable = (r) => rowZ[r] >= zb && rowZ[r] <= zTop;
+      // c sütunundan c±1'e doğru geçiş noktası (komşu sütun tarafında, cm·10 = mm).
+      const crossH = (r, c, dir) => {
+        const c2 = c + dir;
+        if (c2 < 0 || c2 >= nc) return 0;
+        const a = F[r * nc + c], b = F[r * nc + c2];
+        const u = (0.5 - a) / ((b - a) || 1e-9);
+        return Math.max(0, Math.min(1, u)) * Math.abs(sMM(c2) - sMM(c));
+      };
+      // isSet(v) → nokta kümeye ait mi (dolu ya da ışık). Her nokta için kalınlık (mm)
+      // ve şeridin orta çizgisi: kısa eksendeki koşunun ortası (s veya z, cm).
+      function thickness(isSet) {
+        const N = nr * nc;
+        const th = new Float32Array(N).fill(Infinity);
+        const hRun = new Float32Array(N).fill(Infinity), hMid = new Float32Array(N);
+        const vRun = new Float32Array(N).fill(Infinity), vMid = new Float32Array(N);
+        for (let r = 0; r < nr; r++) {
+          if (!editable(r)) continue;
+          const k = shape.scaleAt(rowZ[r]);
+          let c = 0;
+          while (c < nc) {
+            if (!isSet(F[r * nc + c])) { c++; continue; }
+            let e = c;
+            while (e + 1 < nc && isSet(F[r * nc + e + 1])) e++;
+            const open = c === 0 || e === nc - 1;           // satır sınırına (dikiş) değen: uzun say
+            const lo = sMM(c) - crossH(r, c, -1), hi = sMM(e) + crossH(r, e, 1);
+            const len = open ? Infinity : (hi - lo) * k;
+            for (let i = c; i <= e; i++) { hRun[r * nc + i] = len; hMid[r * nc + i] = (lo + hi) / 20; }
+            c = e + 1;
+          }
+        }
+        for (let c = 0; c < nc; c++) {
+          let r = 0;
+          while (r < nr) {
+            if (!editable(r) || !isSet(F[r * nc + c])) { r++; continue; }
+            let e = r;
+            while (e + 1 < nr && editable(e + 1) && isSet(F[(e + 1) * nc + c])) e++;
+            const touchBand = (r === 0 || !editable(r - 1)) || (e === nr - 1 || !editable(e + 1));
+            let len = Infinity, mid = (rowZ[r] + rowZ[e]) / 2;
+            if (!touchBand) {
+              const cross = (rr, dir) => {
+                const a = F[rr * nc + c], b = F[(rr + dir) * nc + c];
+                const u = Math.max(0, Math.min(1, (0.5 - a) / ((b - a) || 1e-9)));
+                return u * Math.abs(rowZ[rr + dir] - rowZ[rr]);
+              };
+              const lo = rowZ[r] - cross(r, -1), hi = rowZ[e] + cross(e, 1);
+              len = (hi - lo) * 10;
+              mid = (lo + hi) / 2;
+            }
+            for (let i = r; i <= e; i++) {
+              vRun[i * nc + c] = len; vMid[i * nc + c] = mid;
+              const h = hRun[i * nc + c];
+              th[i * nc + c] = 1 / Math.sqrt(1 / (h * h) + 1 / (len * len));
+            }
+            r = e + 1;
+          }
+        }
+        return { th, hRun, hMid, vRun, vMid };
+      }
+      // Merkezi (zc, sc) cm, yarıçapı radMM olan daireyi alana "çizer": noktalara sert
+      // 0/1 yerine kenara işaretli uzaklıkla orantılı değer yazılır (rampa). Marching
+      // squares 0,5 geçişini ara değerle bulduğu için sınır tam daire kenarına düşer;
+      // ızgara daireden kaba olsa bile genişlik doğru çıkar. value 0 → dolu (min),
+      // 1 → ışık (max): mevcut değer yalnızca o yöne değişir.
+      function paintDisk(zc, sc, radMM, value) {
+        const k = shape.scaleAt(zc);
+        let r0 = 0;
+        while (r0 + 1 < nr && rowZ[r0 + 1] <= zc) r0++;
+        // Rampa eğimi: en kaba yerel aralık (satır/sütun), değerler bir hücre içinde kırpılmasın.
+        const colSp = (P / nc) * 10 * k;
+        const rowSp = Math.abs(rowZ[Math.min(nr - 1, r0 + 1)] - rowZ[r0]) * 10 || colSp;
+        const S = Math.max(colSp, rowSp, 1e-3);
+        const reach = radMM + S;
+        const put = (i, sd) => {
+          const ramp = Math.max(0, Math.min(1, 0.5 - sd / S));   // dolu ölçeğinde: 0 içeride
+          if (value === 0) { if (ramp < F[i]) F[i] = ramp; } else { const v = 1 - ramp; if (v > F[i]) F[i] = v; }
+        };
+        const rowOk = (r) => editable(r) && Math.abs(rowZ[r] - zc) * 10 <= reach;
+        for (let r = r0; r >= 0 && rowOk(r); r--) paintRow(r);
+        for (let r = r0 + 1; r < nr && rowOk(r); r++) paintRow(r);
+        function paintRow(r) {
+          const dz = (rowZ[r] - zc) * 10;
+          const half = Math.sqrt(Math.max(0, reach * reach - dz * dz)) / (10 * k);   // cm cinsinden s yarı genişliği
+          let lo = 0, hi = nc - 1;
+          const s0 = sc - half;
+          while (lo < hi) { const m = (lo + hi) >> 1; if (colS[m] < s0) lo = m + 1; else hi = m; }
+          for (let c = lo; c < nc && colS[c] <= sc + half; c++) {
+            const ds = (colS[c] - sc) * 10 * k;
+            put(r * nc + c, radMM - Math.sqrt(ds * ds + dz * dz));
+          }
+        }
+      }
+      // Eşiğin altındaki her koşu için orta çizgiye eşik çapında daire: genişlik ≥ eşik.
+      function enforce(isSet, minMM, value) {
+        const { th, hRun, hMid, vRun, vMid } = thickness(isSet);
+        const done = new Set();
+        let n = 0;
+        for (let i = 0; i < nr * nc; i++) {
+          if (!(th[i] < minMM)) continue;
+          const r = (i / nc) | 0, c = i % nc;
+          // Kısa eksen şeridin enine yöndür: orta nokta o eksende alınır.
+          const zc = vRun[i] <= hRun[i] ? vMid[i] : rowZ[r];
+          const sc = vRun[i] <= hRun[i] ? colS[c] : hMid[i];
+          const key = vRun[i] <= hRun[i] ? 'v' + c + ':' + vMid[i].toFixed(4) : 'h' + r + ':' + hMid[i].toFixed(4);
+          if (done.has(key)) continue;
+          done.add(key);
+          paintDisk(zc, sc, minMM / 2, value);
+          n++;
+        }
+        return n;
+      }
+      if (minGapMM > 0) stats.widened = enforce((v) => v > 0.5, minGapMM, 1);
+      if (minWallMM > 0) stats.thickened = enforce((v) => v <= 0.5, minWallMM, 0);
     }
 
     // ---- corner posts (flat panels need solid edges to glue) ----
@@ -612,5 +743,50 @@
     return (a * (1 - fs) + b * fs) * (1 - fz) + (c * (1 - fs) + e * fs) * fz;
   }
 
-  global.WallField = { compute, sampleField, signedDistance, smoothSampler };
+  // ---------- gerçekçi ışık: yayıcısı olan LED (yarı gölge) ----------
+  //
+  // Gerçek LED nokta değil, çapı 1–3 mm'lik bir yayıcıdır (duvara bakan disk,
+  // z = cz düzleminde). Duvardaki (X, Y) noktasına yayıcının her noktasından ayrı
+  // bir ışın gelir ve lamba duvarını biraz farklı (s, z)'de keser; nokta, ışınların
+  // geçen kesri kadar aydınlanır. Küçük yayıcı için kesişim kayması doğrusaldır:
+  // radyal kayma e_r → Δz = cz·(ρ − r)/ρ² · e_r, teğetsel kayma e_t → Δs = (ρ − r)/ρ · e_t
+  // (r: kesişimdeki gövde yarıçapı). Kesim LED'e yaklaştıkça (z → cz) yarı gölge
+  // büyür: genişliği ≈ yayıcı · z / (cz − z).
+  const EMIT = (() => {           // birim diskte eşit alanlı 16 nokta (Vogel)
+    const n = 16, ga = Math.PI * (3 - Math.sqrt(5)), pts = [];
+    for (let i = 0; i < n; i++) { const r = Math.sqrt((i + 0.5) / n); pts.push([r * Math.cos(i * ga), r * Math.sin(i * ga)]); }
+    return pts;
+  })();
+  const QUICK = [[0, 0]].concat(Array.from({ length: 6 }, (_, i) => [0.85 * Math.cos(i * Math.PI / 3), 0.85 * Math.sin(i * Math.PI / 3)]));
+
+  /**
+   * Duvar noktası (X, Y) cm → aydınlanma oranı 0..1 (yayıcı çapı emitterCm; 0 = nokta LED).
+   * null: gövdenin arkası (lambanın izi).
+   */
+  function litFraction(field, X, Y, emitterCm) {
+    const shape = field.shape, cz = field.cz, mg = field.margin || 0;
+    const inv = global.Projection.inverseShell(X, Y, shape, cz, mg);
+    if (!inv) return null;
+    const ok = (s, z) => z >= 0 && z <= cz - mg && sampleField(field, s, z) > 0.5;
+    if (!(emitterCm > 0)) return !inv.blocked && ok(inv.s, inv.z) ? 1 : 0;
+    const rho = Math.hypot(X, Y);
+    if (!isFinite(inv.z) || inv.z >= cz) return 0;
+    const reff = rho * (cz - inv.z) / cz;                 // kesişimdeki gövde yarıçapı (ölçekli)
+    const kz = cz * (rho - reff) / (rho * rho), ks = (rho - reff) / rho;
+    const ux = X / rho, uy = Y / rho, er = emitterCm / 2;
+    const at = (p) => {
+      const ex = p[0] * er, ey = p[1] * er;
+      return ok(inv.s + ks * (ex * -uy + ey * ux), inv.z + kz * (ex * ux + ey * uy)) ? 1 : 0;
+    };
+    // Önce merkez + halka: hepsi aynıysa yarı gölgede değil (hızlı yol).
+    const q0 = at(QUICK[0]);
+    let same = true;
+    for (let i = 1; i < QUICK.length && same; i++) if (at(QUICK[i]) !== q0) same = false;
+    if (same) return q0;
+    let n = 0;
+    for (const p of EMIT) n += at(p);
+    return n / EMIT.length;
+  }
+
+  global.WallField = { compute, sampleField, signedDistance, smoothSampler, litFraction };
 })(typeof window !== 'undefined' ? window : globalThis);

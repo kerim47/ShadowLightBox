@@ -26,6 +26,7 @@ ShellMesher.bbox(meshes)               // → { minX, minY, minZ, maxX, maxY, ma
 | `tubeOD`, `holderHeight` | 40, 10 | tube mount |
 | `chamfer`, `supportLayer` | true, false | flat panels: 45°-style mitred ends; 0.2 mm layer under each panel |
 | `labels` | true | flat panels: raised 7-segment assembly number (0.6 mm) on each panel's outer face, placed in a fully solid window of the field (bottom first, centre outward), and the same number on the plate top beside each edge (avoids keyhole / tube ring). Meshes `panel-N-label`, `base-plate-label-N`. |
+| `rayAlign` | true | inner/outer surface points on the LED ray through the mid-surface (hole walls parallel to the light); bands and flat-panel ends blend to normal cuts |
 | `merge` | true | false → no solid-region merge (tests compare volume against it) |
 | `bed` | 256 | `{ x, y, z }` or a number (square) |
 | `assembled` | false | true → lamp coordinates for the room preview (always the one-piece shell) and adds `tube-glass` (`previewOnly`) |

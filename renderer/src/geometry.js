@@ -113,7 +113,7 @@
     whiteMat.userData.keep = true;
 
     // Tabla { x, y } mm (dikdörtgen); ızgara 20 mm aralıklı.
-    const bedOf = (o) => { const b = (o && o.bed) || 256; return typeof b === 'number' ? { x: b, y: b, z: b } : b; };
+    const bedOf = (o) => { const b = (o && o.bed) || 250; return typeof b === 'number' ? { x: b, y: b, z: b } : b; };
     function buildBedPlate(bed, fits, count, pitch) {
       clearGroup(bedPlateGroup);
       // Düz panelde parçalar birden fazla tablaya dağılabilir: tablalar +X yönünde yan yana.
@@ -246,6 +246,27 @@
     led.shadow.bias = -0.0008;
     led.shadow.radius = 1.5;
     room.add(led);
+    // Gerçek gölgede LED'in yayıcı yüzeyi: diskte halka şeklinde ek gölgeli ışıklar.
+    // Her biri mesh'in kendi gölgesini düşürür; toplamları gerçek yarı gölgeyi verir.
+    const AREA_N = 6;
+    const areaLeds = Array.from({ length: AREA_N }, () => {
+      const l = new THREE.PointLight(0xffc46e, 0, 0, 0);
+      l.shadow.mapSize.set(1024, 1024);
+      l.shadow.camera.near = 0.05;
+      l.shadow.camera.far = 600;
+      l.shadow.bias = -0.0008;
+      l.visible = false;
+      room.add(l);
+      return l;
+    });
+    let emitterCm = 0, ledZ = 0;
+    function placeAreaLeds() {
+      const rr = (emitterCm / 2) * 0.75;
+      areaLeds.forEach((l, i) => {
+        const a = (i / AREA_N) * 2 * Math.PI;
+        l.position.set(rr * Math.cos(a), rr * Math.sin(a), ledZ);
+      });
+    }
     // Gerçek gölge modunda duvar: LED ile aydınlanan ve gölge alan malzeme.
     const wallMatShadow = new THREE.MeshStandardMaterial({ color: 0xefe9df, roughness: 1 });
     wall.receiveShadow = true;
@@ -397,7 +418,14 @@
       // Gerçek gölgede mesafe sönümü kapalı: uzak gölge de görünsün (açı etkisi kalır).
       led.decay = real ? 0 : 2;
       led.distance = real ? 0 : 300;
-      led.intensity = ledBase * (real ? 1.2 : 1);
+      const area = real && emitterCm > 0;
+      led.intensity = (ledBase * (real ? 1.2 : 1)) / (area ? AREA_N + 1 : 1);
+      areaLeds.forEach((l) => {
+        l.visible = area;
+        l.castShadow = area;
+        l.intensity = led.intensity;
+        l.color.copy(led.color);
+      });
       bedLamp.visible = roomLamp.visible = !cmp.hideGenerated;
       cmpBed.visible = cmpRoom.visible = cmp.loaded && cmp.visible;
       dirtyShadow();
@@ -423,7 +451,9 @@
       }
       const k = (look.brightness != null ? look.brightness : 100) / 100;
       ledBase = 2.2 * k;
-      led.intensity = ledBase * (realShadow && lightOn ? 1.2 : 1);
+      emitterCm = look.emitter || 0;
+      placeAreaLeds();
+      applyVisibility();
       glow.scale.setScalar(7 * Math.sqrt(Math.max(0.2, k)));
       if (look.wallColor != null) {
         wallMatShadow.color.set(look.wallColor);
@@ -536,6 +566,8 @@
       floorBelowLamp = b.minY / 10 - 25;
       applyLook(opts);
       led.position.set(0, 0, cz);
+      ledZ = cz;
+      placeAreaLeds();
       ledBulb.position.set(0, 0, cz);
       glow.position.set(0, 0, cz);
       cams.room.target.set(0, 0, d / 2);
