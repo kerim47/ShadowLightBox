@@ -114,27 +114,36 @@
 
     // Tabla { x, y } mm (dikdörtgen); ızgara 20 mm aralıklı.
     const bedOf = (o) => { const b = (o && o.bed) || 256; return typeof b === 'number' ? { x: b, y: b, z: b } : b; };
-    function buildBedPlate(bed, fits) {
+    function buildBedPlate(bed, fits, count, pitch) {
       clearGroup(bedPlateGroup);
+      // Düz panelde parçalar birden fazla tablaya dağılabilir: tablalar +X yönünde yan yana.
+      for (let k = 0; k < (count || 1); k++) {
+        const g = new THREE.Group();
+        g.position.x = (k * (pitch || 0)) / 10;
+        bedPlateGroup.add(g);
+        addBedPlate(g, bed, fits);
+      }
+    }
+    function addBedPlate(group, bed, fits) {
       const sx = bed.x / 10, sz = bed.y / 10;
       const plate = new THREE.Mesh(
         new THREE.BoxGeometry(sx, 0.4, sz),
         new THREE.MeshStandardMaterial({ color: 0x3c3c40, roughness: 0.8 }),
       );
       plate.position.y = -0.21;
-      bedPlateGroup.add(plate);
+      group.add(plate);
       const pts = [];
       for (let x = -sx / 2; x <= sx / 2 + 1e-6; x += 2) pts.push(new THREE.Vector3(x, 0, -sz / 2), new THREE.Vector3(x, 0, sz / 2));
       for (let z = -sz / 2; z <= sz / 2 + 1e-6; z += 2) pts.push(new THREE.Vector3(-sx / 2, 0, z), new THREE.Vector3(sx / 2, 0, z));
       const grid = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x4d4d52 }));
       grid.position.y = 0.01;
-      bedPlateGroup.add(grid);
+      group.add(grid);
       const edge = new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, 0.4, sz)),
         new THREE.LineBasicMaterial({ color: fits ? 0x6a6a70 : 0xff4d4d }),
       );
       edge.position.y = -0.21;
-      bedPlateGroup.add(edge);
+      group.add(edge);
     }
 
     function dimLine(group, a, b, label, color, h, labelOffset) {
@@ -172,20 +181,21 @@
         const off = h * 1.4;
         const wmm = Math.round((bb.maxX - bb.minX) * 10), hmm = Math.round((bb.maxY - bb.minY) * 10);
         dimLine(bedDims, new THREE.Vector3(bb.minX, bb.minY - off, 0.2), new THREE.Vector3(bb.maxX, bb.minY - off, 0.2),
-          `Gölge genişliği = ${wmm} mm`, red, h, new THREE.Vector3(0, -h * 0.9, 0));
+          I18n.t('Gölge genişliği = {0} mm', [wmm]), red, h, new THREE.Vector3(0, -h * 0.9, 0));
         dimLine(bedDims, new THREE.Vector3(bb.minX - off, bb.minY, 0.2), new THREE.Vector3(bb.minX - off, bb.maxY, 0.2),
-          `Gölge uzunluğu = ${hmm} mm`, red, h, new THREE.Vector3(-h * 5, 0, 0));
+          I18n.t('Gölge uzunluğu = {0} mm', [hmm]), red, h, new THREE.Vector3(-h * 5, 0, 0));
       }
       if (opts.bodyMM) {
         const b = opts.bodyMM;
-        const sp = textSprite(`Gövde ${b.w.toFixed(0)} × ${b.h.toFixed(0)} × ${b.d.toFixed(0)} mm`, '#ff4b3e', h * 0.8);
+        const sp = textSprite(I18n.t('Gövde {0} × {1} × {2} mm', [b.w.toFixed(0), b.h.toFixed(0), b.d.toFixed(0)]), '#ff4b3e', h * 0.8);
         sp.position.set(0, 0, opts.d + h * 2.2);
         bedDims.add(sp);
       }
       const bed = bedOf(opts);
-      const bedLabel = textSprite(`Tabla ${bed.x} × ${bed.y} mm${opts.fitsBed ? '' : '  —  sığmıyor!'}`,
+      const n = opts.bedCount || 1;
+      const bedLabel = textSprite(I18n.t('Tabla {0} × {1} mm{2}{3}', [bed.x, bed.y, n > 1 ? ' ' + I18n.t('· {0} tabla', [n]) : '', opts.fitsBed ? '' : '  ' + I18n.t('— sığmıyor!')]),
         opts.fitsBed ? '#9a9aa0' : '#ff4b3e', h * 0.7);
-      bedLabel.position.set(0, -bed.y / 20 - h * 0.9, 0.2);
+      bedLabel.position.set((((opts.bedCount || 1) - 1) * (opts.bedPitch || 0)) / 20, -bed.y / 20 - h * 0.9, 0.2);
       bedDims.add(bedLabel);
     }
 
@@ -333,7 +343,8 @@
       const bb = lastOpts.shadowBBox;
       const e = bb ? Math.max(-bb.minX, bb.maxX, -bb.minY, bb.maxY) : lastOpts.R;
       const bed = bedOf(lastOpts);
-      return Math.max(e * 1.15, Math.max(bed.x, bed.y) / 20, 15);
+      const span = bed.x + ((lastOpts.bedCount || 1) - 1) * (lastOpts.bedPitch || 0);
+      return Math.max(e * 1.15, Math.max(span, bed.y) / 20, 15);
     }
 
     function setCamPreset(name) {
@@ -514,11 +525,11 @@
       });
 
       // Tabla
-      buildBedPlate(bedOf(opts), opts.fitsBed !== false);
+      buildBedPlate(bedOf(opts), opts.fitsBed !== false, opts.bedCount, opts.bedPitch);
       if (opts.maskCanvas) { maskTex.image = opts.maskCanvas; maskTex.needsUpdate = true; }
       maskPlane.scale.set(2 * R, 2 * R, 1);
       buildBedDims(opts);
-      cams.bed.target.set(0, d / 2, 0);
+      cams.bed.target.set((((opts.bedCount || 1) - 1) * (opts.bedPitch || 0)) / 20, d / 2, 0);
 
       // Oda
       const b = opts.meshes && opts.meshes.length ? ShellMesher.bbox(opts.meshes) : { minY: -80 };

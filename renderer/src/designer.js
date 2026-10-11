@@ -180,11 +180,12 @@
     }
 
     function readParams() {
-      const d = num('s-d', 6);
+      // Gövde ölçü kutuları mm; tasarım hesabı cm.
+      const d = num('s-d', 60) / 10;
       const shapeSpec = {
         kind: (document.getElementById('s-shape') || {}).value || 'square',
-        W: num('s-W', 15),
-        H: num('s-H', 15),
+        W: num('s-W', 150) / 10,
+        H: num('s-H', 150) / 10,
         N: num('s-N', 6),
         A: num('s-A', 50) / 100,
         taper: num('s-taper', 0) / 100,
@@ -282,6 +283,8 @@
         minHole: p.minHole,
         openTop: p.mount === 'tube',
         keepIslands: p.mode === 'flat' && shape.faceted && p.supportLayer,
+        // Düz panel: adalar her panelin kendi içinde köprülenir (köşeden bağlantı kesimde kopar).
+        panels: p.mode === 'flat' && shape.faceted,
         // Dik basılan tek parça gövdede sarkmalara 45° çatı (düz panel tablada yatık basılır).
         supportFree: p.supportFree && !(p.mode === 'flat' && shape.faceted),
       });

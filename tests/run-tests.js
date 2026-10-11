@@ -124,13 +124,93 @@ console.log('\n3) Yapısal kurallar');
   const f = WallField.compute({ shape: sq, d: D, cz: CZ, margin: MARGIN, sample: () => 0, openTop: true });
   const lamp = ShellMesher.buildLamp(f, { mode: 'flat', mount: 'tube', thickness: 1.6, chamfer: true });
   const p = lamp.meshes.find((m) => m.name === 'panel-1').positions;
+  // Panel tablada 90° dönmüş olabilir: kenar boyu uzun eksen boyunca ölçülür.
+  const pb = ShellMesher.bbox([lamp.meshes.find((m) => m.name === 'panel-1')]);
+  const ax = pb.maxX - pb.minX >= pb.maxY - pb.minY ? 0 : 1;
   let inMin = Infinity, inMax = -Infinity, outMin = Infinity, outMax = -Infinity;
   for (let i = 0; i < p.length; i += 3) {
-    if (p[i + 2] < 0.01) { inMin = Math.min(inMin, p[i]); inMax = Math.max(inMax, p[i]); }
-    if (p[i + 2] > 1.59) { outMin = Math.min(outMin, p[i]); outMax = Math.max(outMax, p[i]); }
+    if (p[i + 2] < 0.01) { inMin = Math.min(inMin, p[i + ax]); inMax = Math.max(inMax, p[i + ax]); }
+    if (p[i + 2] > 1.59) { outMin = Math.min(outMin, p[i + ax]); outMax = Math.max(outMax, p[i + ax]); }
   }
   const diff = (outMax - outMin) - (inMax - inMin);
   check('düz panel kenarı 45° pahlı (dış − iç = 2 × kalınlık)', Math.abs(diff - 3.2) < 0.05, `fark ${diff.toFixed(2)} mm`);
+  {
+    // Düz yerleşim: 1. tabla lamba ekseninde ortalanır; her parça kendi tablasının içinde kalır.
+    const bed = { x: 256, y: 256, z: 256 };
+    const sq2 = Shapes.make({ kind: 'square', W: 15 }, D);
+    const f2 = WallField.compute({ shape: sq2, d: D, cz: CZ, margin: MARGIN, sample: () => 0, cornerPosts: true });
+    const fl = ShellMesher.buildLamp(f2, { mode: 'flat', mount: 'cap', thickness: 1.6, bed });
+    const inside = [...new Set(fl.meshes.map((m) => m.name))].every((n) => {
+      const b = ShellMesher.bbox(fl.meshes.filter((m) => m.name === n));
+      const k = Math.round((b.minX + bed.x / 2) / fl.info.bedPitchMM - 0.4999);
+      const x0 = k * fl.info.bedPitchMM - bed.x / 2;
+      return b.minX >= x0 - 0.01 && b.maxX <= x0 + bed.x + 0.01 && b.minY >= -bed.y / 2 - 0.01 && b.maxY <= bed.y / 2 + 0.01;
+    });
+    check('düz paneller tabla(lar)ın içine yerleşir, gerekirse ek tablaya geçer', inside && fl.info.fitsBed && fl.info.beds >= 1,
+      `${fl.info.beds} tabla`);
+  }
+  {
+    // Montaj numaraları: her panelde ve plakanın her kenarında bir numara; panel
+    // numarası duvarın dolu yerinde (dış yüzde, panelin içinde), hiçbiri havada değil.
+    const sq3 = Shapes.make({ kind: 'polygon', W: 15, N: 6 }, D);
+    const f3 = WallField.compute({ shape: sq3, d: D, cz: CZ, margin: MARGIN, sample: person, cornerPosts: true });
+    const lm = ShellMesher.buildLamp(f3, { mode: 'flat', mount: 'cap', thickness: 1.6, bed: 256 });
+    const names = lm.meshes.map((m) => m.name);
+    const panels = [1, 2, 3, 4, 5, 6];
+    const inside = panels.every((n) => {
+      const lb = lm.meshes.find((m) => m.name === `panel-${n}-label`);
+      if (!lb) return false;
+      const b = ShellMesher.bbox([lb]), pb = ShellMesher.bbox(lm.meshes.filter((m) => m.name === `panel-${n}`));
+      return b.minX >= pb.minX && b.maxX <= pb.maxX && b.minY >= pb.minY && b.maxY <= pb.maxY && b.minZ > 1.5;
+    });
+    const plateOk = panels.every((n) => names.includes(`base-plate-label-${n}`));
+    const off = ShellMesher.buildLamp(f3, { mode: 'flat', mount: 'cap', thickness: 1.6, bed: 256, labels: false });
+    check('düz panelde montaj numaraları panelde ve plaka kenarlarında, havada değil',
+      inside && plateOk && ShellMesher.validatePrint(lm.meshes).floating.length === 0 && !off.meshes.some((m) => /label/.test(m.name)));
+  }
+  {
+    // Köşeden dolanan adalar: düz panel kesiminde boşta kalmamalı (panel başına köprü),
+    // eski (halka) köprülemede kalan kopuk parçayı validatePrint "loose" olarak yakalamalı.
+    const pat = (X, Y) => {
+      const r = Math.hypot(X, Y);
+      const ring = Math.abs(((r / 6) % 1) - 0.5) < 0.12 && r > 15;
+      const dots = Math.hypot(((X % 9) + 9) % 9 - 4.5, ((Y % 9) + 9) % 9 - 4.5) < 1.6 && r > 20 && r < 45;
+      return (ring || dots || ((X / 16) ** 2 + ((Y + 5) / 30) ** 2) < 1) ? 0 : 1;
+    };
+    const sqp = Shapes.make({ kind: 'square', W: 15 }, D);
+    const base = { shape: sqp, d: D, cz: CZ, margin: MARGIN, sample: pat, bottomBand: 0.35, openTop: true };
+    const lo = { mode: 'flat', mount: 'tube', bed: 256, labels: false };
+    const good = ShellMesher.buildLamp(WallField.compute(Object.assign({ panels: true }, base)), lo);
+    const old = ShellMesher.buildLamp(WallField.compute(base), lo);
+    const vg = ShellMesher.validatePrint(good.meshes), vo = ShellMesher.validatePrint(old.meshes);
+    check('düz panel: köşeden dolanan adalar her panelin içinde köprülenir (kopuk parça yok)', vg.ok, `${vg.floating.length} kopuk`);
+    check('düz panel: panele bağlı olmayan parça tablada olsa da "kopuk" sayılır', vo.floating.some((f) => f.loose));
+    // İnce çizgili desen (çok sayıda köşe/üst kenar kırıntısı): hiçbir şekil/montajda kopuk parça kalmaz.
+    const stripes = (X, Y) => (person(X, Y) === 0 || Math.abs(Math.sin(X * 0.8 + Y * 0.3)) < 0.15) ? 0 : 1;
+    const bad = [];
+    for (const kind of ['square', 'rect', 'polygon']) for (const mount of ['cap', 'tube']) {
+      const shp = Shapes.make({ kind, W: 15, H: 20, N: 6 }, D);
+      const fp = WallField.compute({ shape: shp, d: D, cz: CZ, margin: MARGIN, sample: stripes, bottomBand: 0.35,
+        cornerPosts: mount === 'cap', openTop: mount === 'tube', panels: true });
+      const v = ShellMesher.validatePrint(ShellMesher.buildLamp(fp, { mode: 'flat', mount, bed: 256 }).meshes);
+      if (!v.ok) bad.push(`${kind}/${mount}: ${v.floating.length}`);
+    }
+    check('düz panel: ince çizgili desende hiçbir panelde kopuk parça kalmaz', !bad.length, bad.join(', '));
+  }
+  {
+    // Dolu bölge birleştirme: üçgen sayısı düşer, şekil (hacim) aynı kalır.
+    for (const kind of ['square', 'circle', 'star']) {
+      const sh = Shapes.make({ kind, W: 15, N: 6, A: 0.5 }, D);
+      const fm = WallField.compute({ shape: sh, d: D, cz: CZ, margin: MARGIN, sample: person, cornerPosts: true });
+      const vol = (lamp) => lamp.meshes.filter((m) => /^shell/.test(m.name)).reduce((a, m) => a + meshCheck(m).vol, 0);
+      const tris = (lamp) => lamp.meshes.reduce((a, m) => a + m.indices.length / 3, 0);
+      const a = ShellMesher.buildLamp(fm, { mount: 'cap', assembled: true });
+      const b = ShellMesher.buildLamp(fm, { mount: 'cap', assembled: true, merge: false });
+      const dv = Math.abs(vol(a) - vol(b)) / vol(b);
+      check(`${kind}: dolu bölge birleştirme üçgenleri azaltır, hacim korunur`, tris(a) < tris(b) * 0.5 && dv < 0.002,
+        `${tris(b)} → ${tris(a)} üçgen, hacim farkı %${(dv * 100).toFixed(3)}`);
+    }
+  }
   const t = ShellMesher.buildLamp(f, { mount: 'tube', tubeOD: 40 });
   check('tüp montajı: tüp boyu hesaplanır, kapak parçaları var', t.info.tubeLengthMM > 40 && t.meshes.some((m) => m.name === 'tube-cap-post'));
 }

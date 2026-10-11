@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('appAPI', {
   places:     ()             => ipcRenderer.invoke('fs:places'),
   listDir:    (dir)          => ipcRenderer.invoke('fs:list', dir),
   readFile:   (file)         => ipcRenderer.invoke('fs:read', file),
+  // Arayüz dili (ana süreçteki pencereler — ör. kapatma sorusu — aynı dilde olsun).
+  setLang:    (lang)         => ipcRenderer.send('app:lang', lang),
   // Kapatma penceresinde "Kaydet ve çık" seçilince çağrılır.
   onSaveAndClose: (fn)       => ipcRenderer.on('app:save-and-close', () => fn()),
   // AI background removal. payload: { model, size, data: Float32Array (1×3×S×S) }.

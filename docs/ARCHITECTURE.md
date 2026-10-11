@@ -104,6 +104,7 @@ For a rectangle with `k = 0` this reduces exactly to the original box formula (`
 - In a saddle cell, the centre average decides between one hexagon and two triangles.
 - Every point is keyed as `(row, col, kind)`, with kind = corner, horizontal edge or vertical edge. Neighbouring cells therefore share vertices exactly.
 - Each polygon is fan-triangulated on the outer (+½t) and inner (−½t) surfaces.
+- **Solid-region merge (file size):** cells whose four corners are solid and that don't touch the grid border are greedily merged into rectangles (≥ 2×2). A rectangle keeps only the boundary grid points that a neighbour also uses (a non-merged neighbour cell, or another rectangle's corner), so both sides of every shared line carry the same points and there are no T-junctions. It is fan-triangulated from a centre vertex. On curved walls a rectangle only grows while `arc length × turning / 4 ≤ 0.02 mm` (sharp facet corners stop it). A 15 cm square lamp at "high" quality goes from ~1.2 M to ~0.17 M triangles (STL ~61 → ~9 MB).
 - Polygon edges that are not shared with a neighbouring cell get side walls: contour edges, plus grid-border edges (top/bottom; left/right on flat panels).
 - Orientation: the 2D frame (s, z) maps to 3D with normal `T × Z` = outward, so CCW polygons face outward.
 
@@ -113,6 +114,7 @@ For a rectangle with `k = 0` this reduces exactly to the original box formula (`
 - **Flat panels** (faceted shapes): one planar panel per polygon edge, `x = (s − s_mid)·(1+kz)`, `y = z·slant`.
   - With `chamfer`, x is scaled by `1 ± miter` per side. The outer face gets longer and the inner face shorter by `t/2·tan(θ/2)` at each end; for a square that is 45°.
   - `supportLayer` adds a 0.2 mm trapezoid under each panel.
+  - `labels` (default on) adds a raised assembly number on each panel's outer face (only where the field is solid, so the shadow is unchanged) and the matching number beside each edge on the plate top. Panel N goes on plate edge N; the number's bottom is the plate side and it reads upright from outside.
 
 ### Other parts
 
@@ -128,7 +130,7 @@ All built with `extrude(contour, holes, z0, z1)`, which triangulates with `THREE
 
 - `assembled: true` gives lamp coordinates (for preview, always the one-piece shell, even in flat mode). It adds the preview-only `tube-glass`.
 - One-piece print layout: body + plate at the origin, cap flipped beside it.
-- Flat layout: panels shelf-packed within `bed`.
+- Flat layout: panels, plate and cap shelf-packed (with 90° rotation) onto as many beds as needed; bed 1 centred on the axis, further beds along +X.
 - `toBinarySTL` writes 50-byte facets. Each mesh is a separate object in slicers.
 - `exporters.js` (`ModelExport.exportMeshes(format, meshes, title)`) writes the other formats from the same meshes. It drops `previewOnly` meshes and welds coincident vertices (1e-4 mm) so each piece is closed by index, dropping triangles that collapse. 3MF: OPC zip (fflate when loaded, else stored), mm, one object per piece plus one assembly object of components. OBJ / PLY: mm, Z up. FBX: binary 7.4 with Blender's node/footer layout, `UpAxis` 2 and `UnitScaleFactor` 0.1, `LayerElementNormal` (ByPolygonVertex, faces within 30° averaged), one `Material` + `LayerElementMaterial`, arrays zlib-compressed (encoding 1) when fflate is loaded. The download dialog (`modal-export`) asks every time whether to include `ModelExport.isLightPart` meshes (LED cap / tube parts); default no. GLB: `(x, y, z) mm → (x, z, −y) m` (a rotation, so winding is kept). Tests reload each format with the three.js loaders and check triangle counts and closure.
 

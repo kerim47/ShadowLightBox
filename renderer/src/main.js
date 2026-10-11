@@ -6,6 +6,11 @@
 (function () {
   'use strict';
 
+  // Arayüz dili: Türkçe değilse sayfadaki (ve sonradan eklenen) metinler çevrilir.
+  document.documentElement.lang = I18n.lang();
+  I18n.watch(document.documentElement);
+  if (window.appAPI && window.appAPI.setLang) window.appAPI.setLang(I18n.lang());
+
   let designer = null;
   let inspector = null;      // sağdaki Özellikler | Dosyalar sütunu (aşağıda kurulur)
   const $ = (id) => document.getElementById(id);
@@ -27,11 +32,12 @@
       { id: 's-shape', type: 'select', label: 'Gövde şekli', value: 'square', options: [
         ['square', 'Kare'], ['rect', 'Dikdörtgen'], ['roundedRect', 'Yuvarlak köşeli'], ['circle', 'Silindir'],
         ['polygon', 'Çokgen (altıgen, sekizgen…)'], ['star', 'Yıldız'], ['flower', 'Çiçek'], ['heart', 'Kalp']] },
-      { id: 's-W', param: 'W', label: 'Genişlik', unit: 'cm', min: 6, max: 40, step: 0.5, value: 15 },
-      { id: 's-H', param: 'H', label: 'Yükseklik', unit: 'cm', min: 6, max: 40, step: 0.5, value: 15 },
+      // Gövde ölçüleri arayüzde mm (baskı ölçüsü); designer.readParams cm'ye çevirir.
+      { id: 's-W', param: 'W', label: 'Genişlik', unit: 'mm', min: 60, max: 400, step: 5, value: 150 },
+      { id: 's-H', param: 'H', label: 'Yükseklik', unit: 'mm', min: 60, max: 400, step: 5, value: 150 },
       { id: 's-N', param: 'N', label: 'Kenar sayısı', unit: '', min: 3, max: 12, step: 1, value: 6 },
       { id: 's-A', param: 'A', label: 'Oran', unit: '%', min: 20, max: 90, step: 1, value: 50 },
-      { id: 's-d', label: 'Derinlik', unit: 'cm', min: 3, max: 25, step: 0.5, value: 6 },
+      { id: 's-d', label: 'Derinlik', unit: 'mm', min: 30, max: 250, step: 5, value: 60 },
       { id: 's-lightz', label: 'Işık konumu', unit: '% derinlik', min: 40, max: 90, step: 1, value: 90 },
       { id: 's-taper', label: 'Daralma (ön / arka)', unit: '%', min: -30, max: 50, step: 1, value: 0 },
     ],
@@ -58,6 +64,8 @@
       { id: 'g-supportfree', type: 'check', label: 'Desteksiz baskı (sarkan yerlerin altına 45° çatı)', value: false, showIf: () => $('g-mode').value === 'onepiece',
         note: 'Kapalıyken (varsayılan) gölge siluete birebir uyar; gövdeyi dilimleyicide destek açarak basın, destekler sonra sökülür. Açıkken dik basılan gövdede havaya basılacak yatay çıkıntı kalmaz, ama sarkan yerlerin altına eklenen çatılar duvarda büyür ve gölgenin uzak kenarında testere dişi gibi görünebilir.' },
       { id: 'g-chamfer', type: 'check', label: 'Panel kenarları 45° pahlı (köşeler temiz birleşir)', value: true, showIf: () => $('g-mode').value === 'flat' },
+      { id: 'g-labels', type: 'check', label: 'Montaj numaraları (panelde ve plakada kabartma)', value: true, showIf: () => $('g-mode').value === 'flat',
+        note: 'Her panelin dış yüzüne, duvarın dolu bir yerine küçük kabartma numara basılır; plakada da her kenarın yanında aynı numara vardır. Panel N, plakadaki N kenarına gelir; numaranın altı panelin plakaya oturan kenarıdır, numara dışarıdan düz okunur.' },
       { id: 'g-layer', type: 'check', label: '0,2 mm destek katmanı (kopuk parçaları köprüsüz tutar)', value: false, showIf: () => $('g-mode').value === 'flat' },
       { id: 'g-thickness', label: 'Duvar kalınlığı', unit: 'mm', min: 0.8, max: 5, step: 0.1, value: 1.6 },
       { id: 'g-plate', label: 'Taban kalınlığı', unit: 'mm', min: 1.5, max: 8, step: 0.5, value: 3 },
@@ -261,6 +269,7 @@
       tubeOD: numVal('g-tube', 40),
       holderHeight: numVal('g-holder', 10),
       chamfer: $('g-chamfer').checked,
+      labels: $('g-labels').checked,
       supportLayer: $('g-layer').checked,
       bed: { x: Math.max(100, numVal('g-bedx', 256)), y: Math.max(100, numVal('g-bedy', 256)), z: Math.max(100, numVal('g-bedz', 256)) },
       assembled,
@@ -316,9 +325,11 @@
       simCanvas: simCanvas, maskCanvas: maskCanvas, wallR: Math.max(p.R, p.look.wallSize / 2),
       shadowBBox: designer.getShadowBBox(),
       bed: opts.bed,
+      bedCount: lampPrint ? lampPrint.info.beds : 1,
+      bedPitch: lampPrint ? lampPrint.info.bedPitchMM : 0,
       bodyMM: body,
-      fitsBed: !body || (body.d <= opts.bed.z
-        && ((body.w <= opts.bed.x && body.h <= opts.bed.y) || (body.w <= opts.bed.y && body.h <= opts.bed.x))),
+      fitsBed: lampPrint && lampPrint.info.fitsBed != null ? lampPrint.info.fitsBed : (!body || (body.d <= opts.bed.z
+        && ((body.w <= opts.bed.x && body.h <= opts.bed.y) || (body.w <= opts.bed.y && body.h <= opts.bed.x)))),
       look: p.look,
     });
     if (compareLoaded) updateCompareStats();
@@ -374,10 +385,11 @@
     // Silüet yokken de tabanın kenarında birkaç mm'lik duvar bandı basılır; ölçüt hedefin kendisi.
     const hasWall = !!designer.getAccuracy();
     const groups = [];
-    if (hasWall && names.some((n) => /^(shell|wall|panel)/.test(n))) groups.push(names.some((n) => /^panel/.test(n)) ? 'duvar panelleri' : 'gövde duvarı');
-    if (names.includes('base-plate')) groups.push('taban plakası');
-    const parts = [names.includes('tube-holder') && 'tüp tutucu', names.some((n) => /^(tube-cap|cap|led-)/.test(n)) && 'LED kapağı'].filter(Boolean);
-    if (parts.length) groups.push(parts.join(' + ') + (geo.isLidVisible() ? '' : ' (tablada gizli: "Montaj parçaları")'));
+    if (hasWall && names.some((n) => /^(shell|wall|panel)/.test(n))) groups.push(I18n.t(names.some((n) => /^panel/.test(n)) ? 'duvar panelleri' : 'gövde duvarı'));
+    // Liste birleştirildiği için parçalar burada çevrilir (I18n kalıbı listeyi bölemez).
+    if (names.includes('base-plate')) groups.push(I18n.t('taban plakası'));
+    const parts = [names.includes('tube-holder') && I18n.t('tüp tutucu'), names.some((n) => /^(tube-cap|cap|led-)/.test(n)) && I18n.t('LED kapağı')].filter(Boolean);
+    if (parts.length) groups.push(parts.join(' + ') + (geo.isLidVisible() ? '' : ' ' + I18n.t('(tablada gizli: "Montaj parçaları")')));
     const list = groups.join(', ');
     return list;
   }
@@ -401,9 +413,13 @@
           : '');
     } else {
       cls = 'bad';
-      summary = `⚠ Baskı: ${validation.floating.length} parça havada`;
-      const names = validation.floating.map((f) => `<strong>${escapeHtml(f.name)}</strong>`).join(', ');
-      html = `<span class="ps-icon">⚠</span> ${validation.floating.length} parça havada kalıyor (tablada kırmızı): ${names}`;
+      const loose = validation.floating.filter((f) => f.loose), air = validation.floating.filter((f) => !f.loose);
+      const list = (arr) => [...new Set(arr.map((f) => f.name))].map((n) => `<strong>${escapeHtml(n)}</strong>`).join(', ');
+      summary = `⚠ Baskı: ${validation.floating.length} parça ${loose.length && !air.length ? 'kopuk' : 'havada'}`;
+      html = `<span class="ps-icon">⚠</span> `
+        + (air.length ? `${air.length} parça havada kalıyor (tablada kırmızı): ${list(air)}` : '')
+        + (air.length && loose.length ? ' · ' : '')
+        + (loose.length ? `${loose.length} parça panele bağlı değil, basıldıktan sonra düşer (tablada kırmızı): ${list(loose)}. "0,2 mm destek katmanı"nı açın veya siluete bağlantı ekleyin.` : '');
     }
     sb.hidden = false;
     sb.className = 'sb-link sb-print ' + cls;
@@ -470,7 +486,8 @@
   async function optimizeDetail() {
     const kind = $('s-shape').value;
     const twoD = Shapes.CATALOG[kind].params.includes('H');
-    const W0 = +$('s-W').value, H0 = twoD ? +$('s-H').value : W0, d0 = +$('s-d').value;
+    // Kutular mm, deneme ölçüleri cm (designer ile aynı birim).
+    const W0 = +$('s-W').value / 10, H0 = twoD ? +$('s-H').value / 10 : W0, d0 = +$('s-d').value / 10;
     const bed = Math.min(numVal('g-bedx', 256), numVal('g-bedy', 256)), bedZ = numVal('g-bedz', 256), t = numVal('g-thickness', 1.6);
     const before = designer.getAccuracy();
     optBtn.disabled = true;
@@ -483,7 +500,7 @@
       // Gövde tablaya sığmalı (çapraz ölçü yerine en/boy; şekiller sınır kutusuna sığar).
       if (Math.max(W, H) * 10 + t > bed - 6 || d * 10 > bedZ - 6) break;
       if (tries.some((x) => x.W === W && x.H === H && x.d === d)) continue;
-      showStatus(`<strong>Detay iyileştiriliyor…</strong> gövde ${W} × ${twoD ? H : W} × ${d} cm deneniyor`);
+      showStatus(`<strong>Detay iyileştiriliyor…</strong> gövde ${W * 10} × ${(twoD ? H : W) * 10} × ${d * 10} mm deneniyor`);
       await sleep0();
       const acc = designer.evaluate({ shapeSpec: { W, H }, d });
       if (!acc) break;
@@ -520,9 +537,9 @@
     }
     optBtn.disabled = false;
     if (!best) { showStatus('Önce bir silüet yükleyin.'); return; }
-    $('s-W').value = best.W;
-    if (twoD) $('s-H').value = best.H;
-    $('s-d').value = best.d;
+    $('s-W').value = Math.round(best.W * 10);
+    if (twoD) $('s-H').value = Math.round(best.H * 10);
+    $('s-d').value = Math.round(best.d * 10);
     $('g-quality').value = best.quality;
     if (printChoice) {
       if (printChoice.key === 'supports') $('g-supportfree').checked = false;
@@ -555,6 +572,7 @@
   $('g-mount').addEventListener('change', updateVisibility);
   ['g-thickness', 'g-cap', 'g-seat', 'g-bedx', 'g-bedy', 'g-bedz', 'g-tube', 'g-holder'].forEach((id) => $(id).addEventListener('input', schedulePreview));
   $('g-chamfer').addEventListener('change', schedulePreview);
+  $('g-labels').addEventListener('change', schedulePreview);
   $('g-keyhole').addEventListener('change', schedulePreview);
 
   // ---------- görünüm modları + araç çubuğu ----------
@@ -614,7 +632,7 @@
         if (inspector) inspector.refreshFiles();
         showSavedToast(`İndirilenler'e kaydedildi: ${file.split(/[\\/]/).pop()}`, () => window.appAPI.revealFile(file));
       } catch (err) {
-        alert('Kaydedilemedi: ' + err.message);
+        alert(I18n.t('Kaydedilemedi:') + ' ' + err.message);
       }
       return;
     }
@@ -673,7 +691,7 @@
     const fmt = format || formatSel.value;
     if (designer) designer.recomputeNow();
     const field = designer ? designer.getField() : null;
-    if (!field) { alert('Henüz dışa aktarılacak bir şey yok.'); return; }
+    if (!field) { alert(I18n.t('Henüz dışa aktarılacak bir şey yok.')); return; }
     let lamp, out, meshes;
     try {
       lamp = ShellMesher.buildLamp(field, printOpts(false));
@@ -681,7 +699,7 @@
       meshes = lamp.meshes.filter((m) => !m.previewOnly && (withLight || !ModelExport.isLightPart(m)));
       out = ModelExport.exportMeshes(fmt, meshes, `Shadow lamp ${field.shape.kind}`);
     } catch (err) {
-      alert('Model oluşturulamadı: ' + err.message);
+      alert(I18n.t('Model oluşturulamadı:') + ' ' + err.message);
       return;
     }
     const buf = out.data;
@@ -710,11 +728,11 @@
     // (Büyük kenarı almak her tıklamada dikdörtgeni √oran kadar büyütüyordu.)
     const kind = $('s-shape').value;
     const twoD = Shapes.CATALOG[kind] && Shapes.CATALOG[kind].params.includes('H');
-    const base = (twoD ? Math.sqrt(+$('s-W').value * +$('s-H').value) : +$('s-W').value) || 15;
+    const base = ((twoD ? Math.sqrt(+$('s-W').value * +$('s-H').value) : +$('s-W').value) || 150) / 10;   // mm → cm
     const sug = designer.suggestShape(base);
     $('s-shape').value = sug.kind;
-    $('s-W').value = sug.W;
-    $('s-H').value = sug.H;
+    $('s-W').value = Math.round(sug.W * 10);
+    $('s-H').value = Math.round(sug.H * 10);
     if (sug.kind === 'polygon') $('s-N').value = sug.N;
     updateShapeControls();
     recomputeAll();
@@ -749,6 +767,7 @@
   let photoMask = null;
   let photoMatte = null;      // AI matı önbellekte (modeli yeniden çalıştırmadan eşikleme)
   let photoRunId = 0;
+  let photoAutoDirect = null;  // B/W görselde otomatik "direct"e geçmeden önceki yöntem
 
   function photoOpts() {
     return {
@@ -761,11 +780,13 @@
     };
   }
   function syncPhotoControls() {
-    const portrait = $('photo-method').value === 'portrait';
+    const method = $('photo-method').value;
+    const portrait = method === 'portrait', direct = method === 'direct';
     $('photo-local-wrap').hidden = !portrait;
     $('photo-outline-wrap').hidden = !portrait;
-    $('photo-solid').closest('label').hidden = portrait;
-    $('photo-invert').closest('label').lastChild.textContent = portrait
+    $('photo-smooth-wrap').hidden = direct;
+    $('photo-solid').closest('label').hidden = portrait || direct;
+    $('photo-invert').closest('label').lastChild.textContent = portrait || direct
       ? ' Ters çevir (açık bölgeler gölge olsun)' : ' Ters çevir (konu arka plandan açık renkli)';
   }
   // Kullanıcı yardımı: detay alanları (normalize kutular) ve fırça ipuçları (hintCv).
@@ -835,6 +856,9 @@
         const matte = await ensureMatte(id, true);
         if (id !== photoRunId) return;
         photoMask = Silhouette.fromMatte(matte, photoOpts());
+      } else if ($('photo-method').value === 'direct') {
+        // Hazır siyah-beyaz görsel: yalnızca eşikleme (siyah = gölge, beyaz = ışık).
+        photoMask = Silhouette.direct(src, photoOpts());
       } else {
         photoStatus.textContent = 'Konu aranıyor…';
         await yieldUI();
@@ -856,7 +880,9 @@
       let n = 0;
       for (let i = 0; i < photoMask.data.length; i++) n += photoMask.data[i];
       const pct = (100 * n) / photoMask.data.length;
-      photoStatus.textContent = (pct < 2 || pct > 90
+      photoStatus.textContent = $('photo-method').value === 'direct'
+        ? `Görsel olduğu gibi kullanılıyor: siyah = gölge (%${pct.toFixed(0)}), beyaz = ışık. Ters ise "Ters çevir"i işaretleyin.`
+        : (pct < 2 || pct > 90
         ? `Konu fotoğrafın %${pct.toFixed(0)}'ini kaplıyor — bu yanlış görünüyor. Diğer yöntemi veya hassasiyeti deneyin.`
         : `Koyu = gölge (fotoğrafın %${pct.toFixed(0)}'i). Kaçan bir şey varsa etrafına "Detay alanı" çizin ya da "Ekle" fırçasıyla boyayın.`)
         + (skipped ? ` ${skipped} alanda belirgin hat bulunamadı (alan neredeyse tamamen koyu) — kutuyu nesneye daha yakın çizin.` : '');
@@ -1030,6 +1056,11 @@
         hintCv = Object.assign(document.createElement('canvas'), { width: Math.max(1, Math.round(img.width * k)), height: Math.max(1, Math.round(img.height * k)) });
         hintCount = 0;
         syncRegionButtons();
+        // Zaten siyah-beyaz görsel (ör. hazır şablon PNG): işlemeden kullan.
+        // Elle seçilen yöntem korunur; otomatik seçilen "direct" renkli görselde geri alınır.
+        const bw = Silhouette.isBlackWhite(img);
+        if (bw && $('photo-method').value !== 'direct') { photoAutoDirect = $('photo-method').value; $('photo-method').value = 'direct'; }
+        else if (!bw && photoAutoDirect && $('photo-method').value === 'direct') { $('photo-method').value = photoAutoDirect; photoAutoDirect = null; }
         redrawPhoto();
         runSilhouette();
       };
@@ -1038,7 +1069,7 @@
     };
     reader.readAsDataURL(file);
   }
-  $('photo-method').addEventListener('change', runSilhouette);
+  $('photo-method').addEventListener('change', () => { photoAutoDirect = null; runSilhouette(); });
   ['photo-sens', 'photo-smooth', 'photo-invert', 'photo-solid', 'photo-local', 'photo-outline'].forEach((id) => $(id).addEventListener('change', runSilhouette));
   syncPhotoControls();
   $('photo-cancel').addEventListener('click', () => { photoModal.hidden = true; });
@@ -1216,6 +1247,7 @@
   function buildPayload() {
     return {
       version: 2,
+      sizeUnit: 'mm',          // s-W / s-H / s-d (öncesinde cm kaydedilirdi)
       sliders: readState(),
       outsideLit: designer.isOutsideLit(),
       targetImage: designer.getTargetImageDataURL(),
@@ -1235,13 +1267,15 @@
       // Eski tasarımlar tek (kare) tabla ölçüsü tutuyordu.
       if (sl['g-bed'] != null && sl['g-bedx'] == null) { sl['g-bedx'] = sl['g-bedy'] = sl['g-bedz'] = sl['g-bed']; }
       delete sl['g-bed'];
+      // Gövde ölçüleri eskiden cm idi; artık kutular mm.
+      if (payload.sizeUnit !== 'mm') ['s-W', 's-H', 's-d'].forEach((k) => { if (sl[k] != null && isFinite(+sl[k])) sl[k] = Math.round(+sl[k] * 10); });
       writeState(sl);
     }
     updateShapeControls();
     if (payload && payload.targetImage) {
       const lit = legacy ? false : payload.outsideLit !== false;
       try { await designer.loadTargetImageDataURL(payload.targetImage, lit); }
-      catch (_) { alert('Bu tasarım dosyasındaki görüntü yüklenemedi.'); }
+      catch (_) { alert(I18n.t('Bu tasarım dosyasındaki görüntü yüklenemedi.')); }
     }
     recomputeAll();
   }
@@ -1282,7 +1316,7 @@
       del.textContent = '×';
       del.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (!confirm(`"${it.name}" silinsin mi?`)) return;
+        if (!confirm(I18n.t('"{0}" silinsin mi?', [it.name]))) return;
         await DesignStorage.remove(it.name);
         if (currentDesignName === it.name) setCurrentName(null);
         showOpen();
@@ -1296,7 +1330,7 @@
           await openDesignText(text, it.name);
           hideOpen();
         } catch (err) {
-          alert('Açılamadı: ' + err.message);
+          alert(I18n.t('Açılamadı:') + ' ' + err.message);
         }
       });
       designListEl.appendChild(li);
@@ -1332,7 +1366,7 @@
       if (closeAfterSave) window.close();
     } catch (err) {
       closeAfterSave = false;
-      alert('Kaydedilemedi: ' + err.message);
+      alert(I18n.t('Kaydedilemedi:') + ' ' + err.message);
     }
   }
   $('saveas-cancel').addEventListener('click', hideSaveAs);
@@ -1351,7 +1385,7 @@
     const name = raw.endsWith('.json') ? raw : raw + '.json';
     try {
       if (await DesignStorage.exists(name) && name !== currentDesignName) {
-        if (!confirm(`"${name}" zaten var. Üzerine yazılsın mı?`)) return;
+        if (!confirm(I18n.t('"{0}" zaten var. Üzerine yazılsın mı?', [name]))) return;
       }
       const result = await DesignStorage.write(name, JSON.stringify(buildPayload(), null, 2));
       setCurrentName(result.name || name);
@@ -1402,7 +1436,7 @@
     inspector.refreshFiles();
   }
   function confirmDiscard() {
-    return !designDirty || confirm('Kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?');
+    return !designDirty || confirm(I18n.t('Kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?'));
   }
   async function openDesignText(text, name) {
     history.pause();
@@ -1421,7 +1455,7 @@
       await openDesignText(await DesignStorage.read(name), name);
       showSavedToast(`"${name}" açıldı`);
     } catch (err) {
-      alert('Açılamadı: ' + err.message);
+      alert(I18n.t('Açılamadı:') + ' ' + err.message);
     }
   }
   function newDesign() {
@@ -1448,7 +1482,7 @@
       setDirty(true);   // uygulamanın kayıt klasöründe değil: Kaydet ile oraya yazılır
       showSavedToast(`"${name}" içe aktarıldı`);
     } catch (err) {
-      alert('Tasarım dosyası okunamadı: ' + err.message);
+      alert(I18n.t('Tasarım dosyası okunamadı:') + ' ' + err.message);
     }
   }
   $('design-file').addEventListener('change', (e) => {
@@ -1598,7 +1632,7 @@
       '-',
       { label: 'Silueti temizle', action: () => { setWorkspace('lamp'); $('clear').click(); } },
       { label: 'Ayarları varsayılana döndür', action: () => {
-        if (!confirm('Bütün lamba ayarları varsayılana dönsün mü? (Siluet korunur)')) return;
+        if (!confirm(I18n.t('Bütün lamba ayarları varsayılana dönsün mü? (Siluet korunur)'))) return;
         const defaults = {};
         ALL_FIELDS.forEach((def) => { if (!def.id.startsWith('c-') && def.value !== undefined) defaults[def.id] = def.value; });
         writeState(defaults); updateShapeControls(); updateVisibility(); recomputeAll();
@@ -1630,6 +1664,10 @@
       { label: 'Ayar ara…', shortcut: 'Ctrl+P', action: () => inspector.focusSearch() },
       { label: 'Kenar çubuğu', shortcut: 'Ctrl+B', visible: inLamp, checked: () => !appEl.classList.contains('no-side'), action: toggleSidebar },
       { label: 'Tam ekran', shortcut: 'F11', checked: () => !!document.fullscreenElement, action: toggleFullscreen },
+      '-',
+      { label: 'Dil / Language', submenu: () => I18n.LANGS.map(([id, name]) => ({
+        label: name, radio: true, checked: () => I18n.lang() === id, action: () => switchLanguage(id),
+      })) },
     ] },
     { label: 'Araçlar', items: [
       { label: 'Siluetten gövde şekli öner', action: () => { setWorkspace('lamp'); applySuggestion(); } },
@@ -1804,8 +1842,35 @@
   };
   $('sb-msg').textContent = WS_HINTS.lamp;
   window.addEventListener('beforeunload', (e) => {
-    if (designDirty) { e.preventDefault(); e.returnValue = ''; }
+    if (designDirty && !languageReload) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  // ---------- dil değiştirme ----------
+  // Dil değişince pencere yeniden yüklenir; açık tasarım (kaydedilmemiş olsa da)
+  // sessionStorage üzerinden taşınır ve yükleme sonrası geri konur.
+  const RELANG_KEY = 'shadowlamp.relang';
+  let languageReload = false;
+  function switchLanguage(id) {
+    if (id === I18n.lang()) return;
+    try {
+      sessionStorage.setItem(RELANG_KEY, JSON.stringify({ payload: buildPayload(), name: currentDesignName, dirty: designDirty }));
+    } catch (_) {
+      // Depolama dolu/kapalı: değişiklikler taşınamaz, kullanıcıya sorulur.
+      if (!confirmDiscard()) return;
+    }
+    I18n.setLang(id);
+    languageReload = true;
+    showStatus(I18n.t('Dil değiştirildi; uygulama yeniden yükleniyor…'));
+    setTimeout(() => location.reload(), 50);
+  }
+  async function restoreAfterLanguageSwitch() {
+    let stash = null;
+    try { stash = JSON.parse(sessionStorage.getItem(RELANG_KEY) || 'null'); sessionStorage.removeItem(RELANG_KEY); } catch (_) { /* yok */ }
+    if (!stash || !stash.payload) return;
+    await applyPayload(stash.payload);
+    setCurrentName(stash.name || null);
+    setTimeout(() => { history.reset(); setDirty(!!stash.dirty); }, 1300);
+  }
 
   setCurrentName(null);
   setView('bed');
@@ -1814,4 +1879,5 @@
   HelpTips.compact(document.querySelector('.workspace'));
   rebuildPreview();
   setTimeout(() => { history.reset(); setDirty(false); }, 1200);
+  restoreAfterLanguageSwitch();
 })();

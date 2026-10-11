@@ -19,8 +19,8 @@ Electron app that turns a photo into a 3D-printable shadow lamp (STL, 3MF, OBJ, 
 ## Conventions
 - No bundler, no ES modules: each `renderer/src/*.js` is an IIFE exposing one global; script order in `index.html` matters. Core modules (`shapes`, `projection`, `wall_field`, `shell_mesher`, `exporters`, `stencil`) stay DOM-free so Node tests can load them.
 - three.js is pinned to r128 (`examples/js` loaders as globals) — don't upgrade.
-- UI text is **Turkish**; code identifiers English; comments match the surrounding file. Docs are English with a one-line Turkish summary.
-- Units: lamp geometry / UI in **cm**; meshes / STL in **mm** (`MM = 10`).
+- UI text is written in **Turkish** (source language, default UI); English comes from `renderer/src/i18n_en.js` (Turkish text → English, `{0}`/`{name}` placeholders). Add the English for every new Turkish UI string there. DOM text is translated automatically when English is selected (`I18n.watch`); text outside the DOM (canvas labels, `alert`/`confirm`) goes through `I18n.t()`. Language: View → Dil / Language (stored in localStorage, the window reloads keeping the open design). Code identifiers English; comments match the surrounding file. Docs are English with a one-line Turkish summary.
+- Units: lamp geometry in **cm**; meshes / STL in **mm** (`MM = 10`). UI body size boxes (`s-W`, `s-H`, `s-d`) and print settings are **mm**; `designer.readParams()` converts body sizes to cm. Design files carry `sizeUnit: 'mm'`; files without it are cm and get ×10 on load.
 - Wall field `F`: values 0..1, **> 0.5 = hole** (light passes). Target image: **white = lit**, 2048² covering `[-R, R]²` cm, sampled through its signed distance field.
 
 ## Invariants — never break

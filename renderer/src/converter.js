@@ -793,7 +793,7 @@
         vctx.fillStyle = '#a6a6aa';
         vctx.font = '13px sans-serif';
         vctx.textAlign = 'center';
-        vctx.fillText(view === 'shadow' ? 'Lambanın gerçek duvarı hesaplanıyor…' : 'Hazırlanıyor…', W / 2 + panX, H / 2 + panY);
+        vctx.fillText(I18n.t(view === 'shadow' ? 'Lambanın gerçek duvarı hesaplanıyor…' : 'Hazırlanıyor…'), W / 2 + panX, H / 2 + panY);
       }
       // Sürüklerken: yeni yerleşimin hızlı önizlemesi
       if (drag && drag.kind === 'move' && aCv) {

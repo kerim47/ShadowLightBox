@@ -153,7 +153,7 @@
 <div id="modal-photo" class="modal" hidden>
   <div class="modal-box modal-wide">
     <h3>Fotoğraftan siluet</h3>
-    <p class="modal-sub">Koyu kısım duvarda gölge olur. Sonradan "Siluet" bölümünde fırçayla düzeltebilirsiniz. SVG de yükleyebilirsiniz.</p>
+    <p class="modal-sub">Koyu kısım duvarda gölge olur. Sonradan "Siluet" bölümünde fırçayla düzeltebilirsiniz. SVG de yükleyebilirsiniz. Hazır siyah-beyaz bir PNG'yi işlemeden kullanmak için "Hazır siyah-beyaz görsel" yöntemini seçin.</p>
     <div class="photo-grid">
       <div class="photo-stage">
         <div class="photo-tools" role="toolbar" aria-label="Seçim araçları">
@@ -177,6 +177,7 @@
             <option value="portrait">Detaylı portre — yüz hatları gölgede görünür (önerilen)</option>
             <option value="ai">Düz siluet — yapay zeka ile arka plan silme</option>
             <option value="quick">Düz siluet — hızlı (sade arka plan)</option>
+            <option value="direct">Hazır siyah-beyaz görsel — olduğu gibi kullan (işlem yok)</option>
           </select>
         </div>
         <div class="field">
@@ -191,7 +192,7 @@
           <label>Dış hat kalınlığı <b id="photo-outline-out">3</b></label>
           <input type="range" id="photo-outline" min="0" max="12" value="3" step="1" />
         </div>
-        <div class="field">
+        <div class="field" id="photo-smooth-wrap">
           <label>Kenar yumuşatma <b id="photo-smooth-out">1</b></label>
           <input type="range" id="photo-smooth" min="0" max="8" value="1" step="1" />
         </div>
@@ -252,6 +253,8 @@
 <script src="../node_modules/three/examples/js/loaders/OBJLoader.js"></script>
 <script src="../node_modules/three/examples/js/loaders/3MFLoader.js"></script>
 <script src="../node_modules/three/examples/js/loaders/FBXLoader.js"></script>
+<script src="src/i18n.js"></script>
+<script src="src/i18n_en.js"></script>
 <script src="src/filepicker.js"></script>
 <script src="src/geometry.js"></script>
 <script src="src/shapes.js"></script>

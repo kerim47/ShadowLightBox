@@ -108,8 +108,97 @@
       mb.tri(ai, bo, ao);
     }
 
+    // ---- Dolu bölgeleri birleştir (dosya boyutu) ----
+    // Dört köşesi de dolu, kenara değmeyen hücreler dikdörtgenlerde birleşir.
+    // Dikdörtgenin kenarında yalnızca komşuların da kullandığı ızgara noktaları
+    // tutulur (aynı nokta kümesi iki tarafta da → T-birleşimi yok, su geçirmez);
+    // yüz, merkez noktasından yelpazeyle örülür. Eğri duvarda dikdörtgen,
+    // kiriş sapması `mergeTol` mm'yi geçmeyecek genişlikte kalır.
+    const rectOf = new Int32Array((nr - 1) * ncell).fill(-1);
+    const rects = [];
+    if (opts.merge !== false) {
+      const tol = opts.mergeTol != null ? opts.mergeTol : 0.02;
+      const eligible = (r, lc) => r > 0 && r < nr - 2 && (periodic || (lc > 0 && lc < ncell - 1))
+        && val(r, lc) <= 0.5 && val(r, wrap(lc + 1)) <= 0.5 && val(r + 1, wrap(lc + 1)) <= 0.5 && val(r + 1, lc) <= 0.5;
+      const free = (r, lc) => rectOf[r * ncell + lc] < 0 && eligible(r, lc);
+      // Sütunlar boyunca biriken yay boyu (S) ve dönme açısı (T): [lc0, lc1]
+      // aralığının kirişten sapması ≤ uzunluk × dönme / 4 (köşe için de güvenli).
+      const z0 = rowZ[0];
+      const S = new Float64Array(ncell + 2), T = new Float64Array(ncell + 2);
+      let prev = map(0, 0, z0, +1), prevDir = null;
+      for (let m = 1; m <= ncell; m++) {
+        const P = map(wrap(m), 0, z0, +1);
+        const d = [P[0] - prev[0], P[1] - prev[1], P[2] - prev[2]];
+        const len = Math.hypot(d[0], d[1], d[2]) || 1e-12;
+        S[m] = S[m - 1] + len;
+        let turn = 0;
+        if (prevDir) {
+          const dot = (d[0] * prevDir[0] + d[1] * prevDir[1] + d[2] * prevDir[2]) / len;
+          turn = Math.acos(Math.max(-1, Math.min(1, dot)));
+        }
+        T[m] = T[m - 1] + turn;   // T[m]: 1 … m−1. noktalardaki dönmelerin toplamı
+        prevDir = [d[0] / len, d[1] / len, d[2] / len];
+        prev = P;
+      }
+      const flatEnough = (lc0, lc1) => (S[lc1] - S[lc0]) * (T[lc1] - T[lc0 + 1]) / 4 <= tol;
+      const MAXW = 256, MAXH = 256;
+      for (let r = 1; r < nr - 2; r++) {
+        for (let lc = 0; lc < ncell; lc++) {
+          if (!free(r, lc)) continue;
+          let w = 1;
+          while (w < MAXW && lc + w < ncell && free(r, lc + w) && flatEnough(lc, lc + w + 1)) w++;
+          let h = 1;
+          while (h < MAXH && r + h < nr - 2) {
+            let ok = true;
+            for (let k = 0; k < w && ok; k++) ok = free(r + h, lc + k);
+            if (!ok) break;
+            h++;
+          }
+          if (w < 2 || h < 2) continue;
+          const id = rects.length;
+          rects.push({ r, lc, w, h });
+          for (let i = 0; i < h; i++) for (let k = 0; k < w; k++) rectOf[(r + i) * ncell + lc + k] = id;
+        }
+      }
+    }
+    // Izgara noktası (r, c) bir dikdörtgenin kenarında tutulmalı mı?
+    const cellRect = (r, lc) => {
+      if (r < 0 || r >= nr - 1) return -2;
+      if (!periodic && (lc < 0 || lc >= ncell)) return -2;
+      return rectOf[r * ncell + col(lc)];
+    };
+    const col = (c) => (periodic ? ((c % ncell) + ncell) % ncell : c);
+    const needed = (r, c) => {
+      for (const [dr, dc] of [[-1, -1], [-1, 0], [0, -1], [0, 0]]) {
+        const id = cellRect(r + dr, c + dc);
+        if (id === -1) return true;               // birleşmemiş komşu hücre
+        if (id >= 0) {
+          const q = rects[id];
+          if ((r === q.r || r === q.r + q.h) && (col(c) === col(q.lc) || col(c) === col(q.lc + q.w))) return true;
+        }
+      }
+      return false;
+    };
+    rects.forEach((q) => {
+      const ring = [];
+      for (let c = q.lc; c < q.lc + q.w; c++) if (needed(q.r, c)) ring.push(cornerPt(q.r, c));
+      for (let r = q.r; r < q.r + q.h; r++) if (needed(r, q.lc + q.w)) ring.push(cornerPt(r, q.lc + q.w));
+      for (let c = q.lc + q.w; c > q.lc; c--) if (needed(q.r + q.h, c)) ring.push(cornerPt(q.r + q.h, c));
+      for (let r = q.r + q.h; r > q.r; r--) if (needed(r, q.lc)) ring.push(cornerPt(r, q.lc));
+      const cc = q.lc + Math.floor(q.w / 2), cf = (q.w % 2) / 2;
+      const cz = (rowZ[q.r] + rowZ[q.r + q.h]) / 2;
+      const o = map(wrap(cc), cf, cz, +1), i = map(wrap(cc), cf, cz, -1);
+      const co = mb.v(o[0], o[1], o[2]), ci = mb.v(i[0], i[1], i[2]);
+      for (let k = 0; k < ring.length; k++) {
+        const a = ring[k], b = ring[(k + 1) % ring.length];
+        mb.tri(co, vout[a], vout[b]);
+        mb.tri(ci, vin[b], vin[a]);
+      }
+    });
+
     for (let r = 0; r < nr - 1; r++) {
       for (let lc = 0; lc < ncell; lc++) {
+        if (rectOf[r * ncell + lc] >= 0) continue;
         const v = [val(r, lc), val(r, wrap(lc + 1)), val(r + 1, wrap(lc + 1)), val(r + 1, lc)];
         const s = v.map((x) => x <= 0.5);
         if (!s[0] && !s[1] && !s[2] && !s[3]) continue;
@@ -291,6 +380,62 @@
 
   const translate = (m, dx, dy, dz) => transform(m, (x, y, z) => [x + dx, y + dy, z + dz]);
 
+  /** Birden çok mesh'i tek mesh'te toplar (her biri kendi içinde kapalı kalır). */
+  function concat(name, meshes) {
+    let np = 0, ni = 0;
+    meshes.forEach((m) => { np += m.positions.length; ni += m.indices.length; });
+    const positions = new Float32Array(np), indices = new Uint32Array(ni);
+    let po = 0, io = 0;
+    meshes.forEach((m) => {
+      positions.set(m.positions, po);
+      for (let i = 0; i < m.indices.length; i++) indices[io + i] = m.indices[i] + po / 3;
+      po += m.positions.length; io += m.indices.length;
+    });
+    return { name, positions, indices };
+  }
+
+  // ---------- montaj numarası (7 segment kabartma) ----------
+
+  const SEGMENTS = { 0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg' };
+  /** Rakam boyutu: yükseklik h → { w (tek rakam), gap, sw (çizgi), total(n) }. */
+  function digitMetrics(h) {
+    const w = 0.6 * h, gap = 0.35 * h, sw = Math.max(0.8, 0.17 * h);
+    return { w, gap, sw, total: (n) => n * w + (n - 1) * gap };
+  }
+  /**
+   * Yazı (rakamlar) → kabartma mesh. (cx, cy) merkez, (ux, uy) yazının "yukarı"
+   * yönü (birim), z0 → z1 yükseklik. Segmentler birbirine değmez (0,05 mm aralık):
+   * her kutu ayrı kapalı gövde kalır, dilimleyici birleştirir.
+   */
+  function labelMesh(name, text, h, cx, cy, ux, uy, z0, z1) {
+    const { w, gap, sw, total } = digitMetrics(h);
+    const e = 0.05, rx = uy, ry = -ux;   // sağ yön
+    const boxes = [];
+    let x0 = -total(text.length) / 2;
+    for (const ch of text) {
+      const segs = SEGMENTS[ch] || '';
+      const R = {
+        a: [x0 + sw + e, h - sw, x0 + w - sw - e, h],
+        d: [x0 + sw + e, 0, x0 + w - sw - e, sw],
+        g: [x0 + sw + e, h / 2 - sw / 2, x0 + w - sw - e, h / 2 + sw / 2],
+        f: [x0, h / 2 + e, x0 + sw, h],
+        e: [x0, 0, x0 + sw, h / 2 - e],
+        b: [x0 + w - sw, h / 2 + e, x0 + w, h],
+        c: [x0 + w - sw, 0, x0 + w, h / 2 - e],
+      };
+      for (const s of segs) {
+        const [a0, b0, a1, b1] = R[s];
+        const pts = [[a0, b0], [a1, b0], [a1, b1], [a0, b1]].map(([lx, ly]) => {
+          const yy = ly - h / 2;
+          return [cx + lx * rx + yy * ux, cy + lx * ry + yy * uy];
+        });
+        boxes.push(extrude(name, pts, [], z0, z1));
+      }
+      x0 += w + gap;
+    }
+    return boxes.length ? concat(name, boxes) : null;
+  }
+
   // ---------- lamp assembly ----------
 
   /**
@@ -306,6 +451,7 @@
    *   thickness, plateThickness, capThickness, ledSeat, keyhole,
    *   tubeOD, holderHeight,              // şeffaf tüp montajı
    *   chamfer, supportLayer,             // düz paneller
+   *   merge (false → dolu bölgeler birleştirilmez; yalnızca test/karşılaştırma),
    *   bed ({ x, y, z } mm veya kare için tek sayı), assembled (true → lamba koordinatlarında önizleme)
    * }
    */
@@ -358,13 +504,37 @@
     if (hanger) plateHoles.push(hanger);
     else if (opts.keyhole !== false) warnings.push('Askı deliği için yer yok — çift taraflı bant kullanın.');
     const plate = extrude('base-plate', outerMm, plateHoles, 0, tb);
+    // Düz panelde plakanın üstüne, her kenarın yanına o kenarın panel numarası
+    // (yazının üstü kenara bakar); askı deliğine / tüp tutucuya değmeyen yere.
+    const plateLabels = [];
+    if (flat && opts.labels !== false) {
+      const P = shape.pts, nv = P.length, h = 6;
+      const avoid = (hanger || []).concat(tubeMount ? circle(0, 0, ringOut + 2, 48) : []);
+      for (let e = 0; e < nv; e++) {
+        const A = P[e], B = P[(e + 1) % nv];
+        const dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1;
+        const ox = dy / L, oy = -dx / L;           // dışa normal (CCW şekil)
+        const inset = t / 2 + 2 + h / 2 + 1;
+        const half = digitMetrics(h).total(String(e + 1).length) / 2 + 1.5;
+        let placed = null;
+        for (const fr of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+          const cx = (A[0] + dx * fr) * MM - ox * inset, cy = (A[1] + dy * fr) * MM - oy * inset;
+          const near = avoid.some(([x, y]) => Math.abs((x - cx) * oy - (y - cy) * ox) < half && Math.abs((x - cx) * ox + (y - cy) * oy) < h / 2 + 1.5)
+            || (tubeMount && Math.hypot(cx, cy) < ringOut + 2 + Math.hypot(half, h / 2 + 1.5));   // tüp tutucunun içi/altı
+          if (near || !fitsInside([[cx, cy]], innerMm, half)) continue;
+          placed = labelMesh(`base-plate-label-${e + 1}`, String(e + 1), h, cx, cy, ox, oy, tb - 0.01, tb + 0.6);
+          break;
+        }
+        if (placed) plateLabels.push(placed);
+      }
+    }
 
     // ----- ışık tutma: kapak (ön çember) veya şeffaf tüp -----
     const capParts = [];
     const emitter = 2.0;
     let lightZmm = czmm;
     let tubeLength = 0;
-    const plateParts = [plate];
+    const plateParts = [plate, ...plateLabels];
     if (tubeMount) {
       // Tabanda tüp tutucu halka. Tüpün tepesinde: tüpün İÇİNE giren tapa +
       // kapaktan aşağı inen direk; LED direğin ucunda, aşağı (duvara) bakar.
@@ -424,7 +594,56 @@
         const y = (p0.y + (p1.y - p0.y) * f) * k + (n0[1] + (n1[1] - n0[1]) * f) * off;
         return [x * MM, y * MM, z * MM];
       };
-      return wallMesh(field, map, { periodic: true, name: 'shell' });
+      return wallMesh(field, map, { periodic: true, name: 'shell', merge: opts.merge });
+    }
+
+    // Panel dış yüzüne (baskıda üstte) kabartma montaj numarası. Yer, duvarın
+    // tamamen dolu olduğu bir pencerede aranır (gölge değişmez): alttan yukarı,
+    // panel ortasından kenarlara doğru; uçlarda pah + 2 mm boşluk bırakılır.
+    function panelLabel(e, ca, ncol, sOf, sA, len, slant, miter) {
+      const text = String(e + 1);
+      const nr = field.nr, F = field.F, rowZ = field.rowZ;
+      const P = new Int32Array((nr + 1) * (ncol + 1));   // dolu olmayan nokta sayısı (önek toplamı)
+      for (let r = 0; r < nr; r++) {
+        for (let c = 0; c < ncol; c++) {
+          const bad = F[r * NC + ((ca + c) % NC)] > 0.4 ? 1 : 0;
+          P[(r + 1) * (ncol + 1) + c + 1] = bad + P[r * (ncol + 1) + c + 1] + P[(r + 1) * (ncol + 1) + c] - P[r * (ncol + 1) + c];
+        }
+      }
+      const badIn = (r0, r1, c0, c1) => P[(r1 + 1) * (ncol + 1) + c1 + 1] - P[r0 * (ncol + 1) + c1 + 1]
+        - P[(r1 + 1) * (ncol + 1) + c0] + P[r0 * (ncol + 1) + c0];
+      const ls = (c) => sOf(ca + c) - sA;                 // panel başından uzaklık (cm)
+      const endGap = (t + 2) / MM + miter * len / 2;
+      for (const h of [6, 4.5]) {
+        const pad = 1.2;
+        // Panel genişliği yükseklikle ölçeklenir (koniklik): en dar yere göre aranır.
+        const minScale = Math.min(shape.scaleAt(0), shape.scaleAt(field.d));
+        const Wcm = (digitMetrics(h).total(text.length) + 2 * pad) / MM / minScale;
+        const Hcm = (h + 2 * pad) / (slant * MM);
+        // Ortadan başlayıp iki yana: aday pencereler [c0, c1].
+        const mid = len / 2 - Wcm / 2;
+        const cands = [];
+        for (let c0 = 0, c1 = 0; c0 < ncol - 1; c0++) {
+          if (ls(c0) < endGap || ls(c0) + Wcm > len - endGap) continue;
+          c1 = Math.max(c1, c0);
+          while (c1 < ncol - 1 && ls(c1) - ls(c0) < Wcm) c1++;
+          if (ls(c1) - ls(c0) >= Wcm) cands.push([c0, c1]);
+        }
+        cands.sort((a, b) => Math.abs(ls(a[0]) - mid) - Math.abs(ls(b[0]) - mid));
+        for (let r0 = 0; r0 < nr - 1; r0++) {
+          let r1 = r0;
+          while (r1 < nr - 1 && rowZ[r1] - rowZ[r0] < Hcm) r1++;
+          if (rowZ[r1] - rowZ[r0] < Hcm) break;
+          for (const [c0, c1] of cands) {
+            if (badIn(r0, r1, c0, c1)) continue;
+            const sMid = (ls(c0) + ls(c1)) / 2, zMid = (rowZ[r0] + rowZ[r1]) / 2;
+            // Dış yüz pah payı kadar uzar (map ile aynı: 1 + miter).
+            const cx = (sMid - len / 2) * shape.scaleAt(zMid) * MM * (1 + miter), cy = zMid * slant * MM;
+            return labelMesh(`panel-${e + 1}-label`, text, h, cx, cy, 0, 1, t - 0.01, t + 0.6);
+          }
+        }
+      }
+      return null;
     }
 
     function flatPanels() {
@@ -460,13 +679,18 @@
           // Dış yüz (side +1, üstte) uzun, iç yüz (tablada) kısa → pahlı uçlar.
           return [sl * shape.scaleAt(z) * MM * (1 + side * miter), z * slant * MM, ((side + 1) * t) / 2];
         };
-        const panel = wallMesh(field, map, { periodic: false, c0: ca, ncol, name: `panel-${e + 1}` });
+        const panel = wallMesh(field, map, { periodic: false, c0: ca, ncol, name: `panel-${e + 1}`, merge: opts.merge });
         const group = [panel];
         if (opts.supportLayer) {
           // 0,2 mm ince taban: kopuk parçaları tutar, ışığı büyük ölçüde geçirir.
           const k0 = (1 - miter), hz = field.d * slant * MM;
           const w0 = (len / 2) * MM * k0, w1 = (len / 2) * shape.scaleAt(field.d) * MM * k0;
           group.push(extrude(`panel-${e + 1}-layer`, [[-w0, 0], [w0, 0], [w1, hz], [-w1, hz]], [], 0, 0.2));
+        }
+        if (opts.labels !== false) {
+          const lab = panelLabel(e, ca, ncol, sOf, sA, len, slant, miter);
+          if (lab) group.push(lab);
+          else warnings.push(`Panel ${e + 1}: montaj numarası için dolu (deliksiz) yer bulunamadı — panelin içine kalemle yazın.`);
         }
         out.push(group);
       }
@@ -478,6 +702,8 @@
       lightZcm: lightZmm / MM,
       tubeLengthMM: tubeLength,
       mount: tubeMount ? 'tube' : 'cap',
+      beds: 1,              // baskı düzeninin kapladığı tabla sayısı (düz panelde > 1 olabilir)
+      bedPitchMM: 0,        // tablalar arası X adımı
       bodyMM: {
         w: (b.maxX - b.minX) * MM + t,
         h: (b.maxY - b.minY) * MM + t,
@@ -500,6 +726,7 @@
       const dx = bb.maxX - cb.minX + 10;
       meshes = [...body, ...cap.map((m) => translate(m, dx, 0, 0))];
       const all = bbox(meshes);
+      info.fitsBed = fitsXY(bb.maxX - bb.minX, bb.maxY - bb.minY) && bb.maxZ <= bed.z;
       if (!fitsXY(bb.maxX - bb.minX, bb.maxY - bb.minY) || bb.maxZ > bed.z) {
         warnings.push(`Gövde (${(bb.maxX - bb.minX).toFixed(0)}×${(bb.maxY - bb.minY).toFixed(0)}×${bb.maxZ.toFixed(0)} mm) ${bedTxt} × ${bed.z} mm yazıcıya sığmıyor.`);
       } else if (!fitsXY(all.maxX - all.minX, all.maxY - all.minY)) {
@@ -507,22 +734,78 @@
       }
     } else {
       // Düz yerleşim: paneller (+ ince katman), plaka (+ tutucu), kapak.
+      // Raf yerleşimi: büyük parça önce, gerekirse 90° döndürülür; sığmayan
+      // parça sonraki tablaya geçer. 1. tabla lamba ekseninde ortalanır
+      // (önizlemedeki tabla), diğerleri +X yönünde yan yana dizilir.
       const pieces = flatPanels();
       pieces.push(plateParts);
       pieces.push(flipCap());
-      meshes = [];
-      let x = 0, y = 0, rowH = 0;
       const gap = 8;
-      pieces.forEach((group) => {
+      const rot90 = (group) => group.map((m) => transform(m, (x, y, z) => [-y, x, z]));
+      const items = pieces.filter((g) => g.length).map((group) => {
         const gb = bbox(group);
-        const w = gb.maxX - gb.minX, h = gb.maxY - gb.minY;
-        if (x > 0 && x + w > bed.x) { x = 0; y += rowH + gap; rowH = 0; }
-        group.forEach((m) => meshes.push(translate(m, x - gb.minX, y - gb.minY, -gb.minZ)));
-        x += w + gap;
-        rowH = Math.max(rowH, h);
-        if (!fitsXY(w, h)) warnings.push(`${group[0].name} (${w.toFixed(0)}×${h.toFixed(0)} mm) ${bedTxt} tablaya sığmıyor.`);
+        return { group, w: gb.maxX - gb.minX, h: gb.maxY - gb.minY };
+      }).sort((a, b) => b.w * b.h - a.w * a.h);
+      const beds = [];
+      const newBed = () => { const bd = { shelves: [], items: [] }; beds.push(bd); return bd; };
+      const tryBed = (bd, it) => {
+        // Önce açık raflar (en az boşa giden yükseklik), yoksa yeni raf (en alçak yön).
+        // Son raf, tabla boyu yetiyorsa yükselebilir.
+        let best = null;
+        bd.shelves.forEach((sh, i) => {
+          const grow = i === bd.shelves.length - 1;
+          [false, true].forEach((rot) => {
+            const w = rot ? it.h : it.w, h = rot ? it.w : it.h;
+            if (sh.x + w > bed.x || (h > sh.h && !(grow && sh.y + h <= bed.y))) return;
+            const waste = Math.abs(sh.h - h);
+            if (!best || waste < best.waste) best = { sh, rot, w, h, waste };
+          });
+        });
+        if (best) { best.sh.h = Math.max(best.sh.h, best.h); return best; }
+        const last = bd.shelves[bd.shelves.length - 1];
+        const y0 = last ? last.y + last.h + gap : 0;
+        [false, true].forEach((rot) => {
+          const w = rot ? it.h : it.w, h = rot ? it.w : it.h;
+          if (w > bed.x || y0 + h > bed.y) return;
+          if (!best || h < best.h) best = { rot, w, h, y0 };
+        });
+        if (best) { best.sh = { x: 0, y: best.y0, h: best.h }; bd.shelves.push(best.sh); }
+        return best;
+      };
+      let fitsAll = true;
+      items.forEach((it) => {
+        let spot = null, bd = null;
+        for (const b0 of beds) { spot = tryBed(b0, it); if (spot) { bd = b0; break; } }
+        if (!spot) { bd = newBed(); spot = tryBed(bd, it); }
+        if (!spot) {
+          // Boş tablaya da sığmıyor: kendi tablasına konur, uyarı verilir.
+          fitsAll = false;
+          warnings.push(`${it.group[0].name} (${it.w.toFixed(0)}×${it.h.toFixed(0)} mm) ${bedTxt} tablaya sığmıyor.`);
+          spot = { sh: { x: 0, y: 0, h: it.h }, rot: false, w: it.w };
+          bd.shelves.push(spot.sh);
+        }
+        bd.items.push({ group: spot.rot ? rot90(it.group) : it.group, x: spot.sh.x, y: spot.sh.y });
+        spot.sh.x += spot.w + gap;
       });
-      if (y + rowH > bed.y) warnings.push('Paneller tek tablaya sığmıyor — dilimleyicide objeleri birden fazla tablaya dağıtın.');
+      const pitch = bed.x + 20;
+      meshes = [];
+      beds.forEach((bd, k) => {
+        // Tabla içinde ortala.
+        const placed = bd.items.map((p) => ({ p, gb: bbox(p.group) }));
+        const usedW = Math.max(...placed.map(({ p, gb }) => p.x + gb.maxX - gb.minX));
+        const usedH = Math.max(...placed.map(({ p, gb }) => p.y + gb.maxY - gb.minY));
+        const ox = k * pitch - bed.x / 2 + Math.max(0, (bed.x - usedW) / 2);
+        const oy = -bed.y / 2 + Math.max(0, (bed.y - usedH) / 2);
+        placed.forEach(({ p, gb }) => {
+          p.group.forEach((m) => meshes.push(translate(m, ox + p.x - gb.minX, oy + p.y - gb.minY, -gb.minZ)));
+        });
+      });
+      info.beds = beds.length;
+      info.bedPitchMM = pitch;
+      info.fitsBed = fitsAll && bbox(meshes).maxZ <= bed.z;
+      if (beds.length > 1) {
+        warnings.push(`Parçalar ${beds.length} tablaya dağıtıldı (tablada yan yana gösterilir) — dilimleyicide her tablayı ayrı basın.`);
+      }
     }
 
     meshes.forEach((m) => { if (!m.previewOnly) info.triangles += m.indices.length / 3; });
@@ -538,12 +821,14 @@
    *    duran yüzeylerinin alanı > minContact mm² (gerçek temas, nokta değil).
    *  - Tablaya oturan bir bileşene değen (kesişen) bileşen de taşınır; dilimleyici
    *    çakışan katıları birleştirir. Değmeyen her bileşen havadadır → basılamaz.
-   * Dönen: { ok, parts, grounded, floating: [{ name, minZ, size }], contactMM2, names (bileşen başına mesh adı) }
+   * Düz panelde panelin ana gövdesine bağlı olmayan bileşen tablada olsa da kopuktur (loose).
+   * Dönen: { ok, parts, grounded, floating: [{ name, loose, minZ, size }], contactMM2, names (bileşen başına mesh adı) }
    */
   function validatePrint(meshes, opts) {
     const o = opts || {};
     const eps = o.eps || 0.05, minContact = o.minContact || 4, touch = o.touch || 0.05;
     const comps = [];
+    const layered = new Set(meshes.filter((m) => /^panel-\d+-layer$/.test(m.name)).map((m) => m.name.replace(/-layer$/, '')));
     meshes.filter((m) => !m.previewOnly).forEach((m) => {
       const p = m.positions, ix = m.indices, nv = p.length / 3;
       // Aynı konumdaki köşeleri birleştir (extrude kapak/yan yüzleri ayrı köşe kullanır).
@@ -580,21 +865,29 @@
         const nz = ux * vy - uy * vx;           // z bileşeni (2 × alan, işaretli)
         if (nz < 0) boxOf(find(vid[ix[t]])).contact += -nz / 2;
       }
-      byRoot.forEach((c) => comps.push(c));
+      // Düz panel: panelin ana gövdesine bağlı olmayan parça tablaya otursa da
+      // kopuktur (basılır ama panelden düşer). İnce destek katmanı varsa onu tutar.
+      const own = [...byRoot.values()];
+      if (/^panel-\d+$/.test(m.name) && own.length > 1 && !layered.has(m.name)) {
+        let main = own[0];
+        own.forEach((c) => { if (c.contact > main.contact) main = c; });
+        own.forEach((c) => { if (c !== main) c.loose = true; });
+      }
+      own.forEach((c) => comps.push(c));
     });
-    comps.forEach((c) => { c.grounded = c.min[2] <= eps && c.contact >= minContact; });
+    comps.forEach((c) => { c.grounded = !c.loose && c.min[2] <= eps && c.contact >= minContact; });
     // Tablaya oturana değen bileşen de taşınır (yinelemeli).
     const overlap = (a, b) => [0, 1, 2].every((k) => a.min[k] <= b.max[k] + touch && b.min[k] <= a.max[k] + touch);
     let changed = true;
     while (changed) {
       changed = false;
       comps.forEach((c) => {
-        if (c.grounded) return;
+        if (c.grounded || c.loose) return;
         if (comps.some((g) => g.grounded && g !== c && overlap(c, g))) { c.grounded = true; changed = true; }
       });
     }
     const floating = comps.filter((c) => !c.grounded).map((c) => ({
-      name: c.name, minZ: c.min[2], size: [c.max[0] - c.min[0], c.max[1] - c.min[1], c.max[2] - c.min[2]],
+      name: c.name, loose: !!c.loose, minZ: c.min[2], size: [c.max[0] - c.min[0], c.max[1] - c.min[1], c.max[2] - c.min[2]],
     }));
     const contactMM2 = comps.reduce((a, c) => a + c.contact, 0);
     return { ok: floating.length === 0, parts: comps.length, grounded: comps.length - floating.length, floating, contactMM2, names: comps.map((c) => c.name) };

@@ -4,7 +4,7 @@
 
 > **AI agents / geliştiriciler:** start with [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md); [`docs/README.md`](docs/README.md) maps every other doc (architecture, design rules, known issues, per-module APIs).
 
-Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the silhouette out of the photo, designs a lamp body (square, rectangle, cylinder, hexagon, star, flower, heart…) with the light in the middle, and computes the wall cutouts so that when the lamp is on, the silhouette appears on the wall as if drawn there. The result is **one model file** (STL, 3MF, OBJ, FBX, PLY or GLB), ready to print. No SVG step is needed. The interface is in Turkish.
+Desktop app that turns a **photo into a wall-mounted shadow lamp**. It pulls the silhouette out of the photo, designs a lamp body (square, rectangle, cylinder, hexagon, star, flower, heart…) with the light in the middle, and computes the wall cutouts so that when the lamp is on, the silhouette appears on the wall as if drawn there. The result is **one model file** (STL, 3MF, OBJ, FBX, PLY or GLB), ready to print. No SVG step is needed. The interface is in Turkish by default and can be switched to English (View → Dil / Language).
 
 ![The lamp switched on in the dark-room view: the silhouette appears on the wall](screenshots/02-dark-room-shadow.png)
 

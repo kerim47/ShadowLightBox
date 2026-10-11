@@ -26,6 +26,7 @@
    *   bottomBand,                      // solid band at z = 0 (cm)
    *   ribs, ribWidth,                  // support ribs (count, cm)
    *   cornerPosts,                     // force solid strips at polygon vertices
+   *   panels,                          // flat panels: bridge islands per facet (no wrap across corners)
    *   minHole,                         // fill light holes smaller than this (cm²)
    * }
    */
@@ -200,7 +201,126 @@
     // a thin neck, a separate bird…) becomes a loose piece of wall. Instead of
     // dropping it, connect it with a thin bridge along the shortest path to
     // solid that's anchored to the base or rim. Only specks are removed.
-    if (!opts.keepIslands) {
+    // Düz panel: duvar köşelerden kesilir, her panel ayrı basılır. Bağlantı
+    // köşeden komşu panele geçerek kurulamaz → adalar panel panel köprülenir.
+    // Köşe sütunu iki panelde de vardır (ortak kenar): köprü oraya boyanmaz,
+    // kırıntı silinirken de o sütuna dokunulmaz; böylece paneller birbirini bozmaz.
+    if (!opts.keepIslands && opts.panels && vertexCol.length > 1) {
+      const minIsland = opts.minIsland != null ? opts.minIsland : 0.005;
+      const bridgeHalf = postW / 2;
+      const bridgeC = Math.max(1, Math.round(bridgeHalf / (P / nc)));
+      stats.bridges = 0;
+      for (let e = 0; e < vertexCol.length; e++) {
+        const ca = vertexCol[e];
+        const cb = e + 1 < vertexCol.length ? vertexCol[e + 1] : nc;
+        const nl = cb - ca + 1;                       // yerel sütun sayısı (iki kenar dahil)
+        const gcol = (lc) => (ca + lc) % nc;
+        const L = nr * nl;
+        const at = (li) => F[((li / nl) | 0) * nc + gcol(li % nl)];
+        const solid = (li) => at(li) <= 0.5;
+        const nbs = (li) => {
+          const r = (li / nl) | 0, c = li - r * nl;
+          return [r > 0 ? li - nl : -1, r < nr - 1 ? li + nl : -1, c < nl - 1 ? li + 1 : -1, c > 0 ? li - 1 : -1];
+        };
+        // Yerel bileşenler.
+        const comp = new Int32Array(L).fill(-1);
+        const groups = [];
+        const stack = [];
+        for (let s0 = 0; s0 < L; s0++) {
+          if (comp[s0] >= 0 || !solid(s0)) continue;
+          const cells = [s0];
+          comp[s0] = groups.length;
+          stack.push(s0);
+          while (stack.length) {
+            const i = stack.pop();
+            for (const j of nbs(i)) {
+              if (j < 0 || comp[j] >= 0 || !solid(j)) continue;
+              comp[j] = groups.length;
+              cells.push(j);
+              stack.push(j);
+            }
+          }
+          groups.push(cells);
+        }
+        const anchoredL = new Uint8Array(L);
+        const islands = [];
+        groups.forEach((cells) => {
+          let bottom = false, top = false;
+          for (const i of cells) {
+            const r = (i / nl) | 0;
+            if (r === 0) bottom = true;
+            if (r === nr - 1) top = true;
+          }
+          if (bottom || (top && !openTop)) cells.forEach((i) => { anchoredL[i] = 1; });
+          if (top && !bottom && !openTop) stats.rimFloating = true; // bu paneldeki ön çember tabana bağlı değil
+          else islands.push(cells);
+        });
+        if (!islands.length) continue;
+        const clear = (cells) => cells.forEach((i) => {
+          const c = i % nl;
+          if (c > 0 && c < nl - 1) F[((i / nl) | 0) * nc + gcol(c)] = 1;
+        });
+        const areaL = (cells) => cells.reduce((a, i) => a + rowH[(i / nl) | 0] * (P / nc), 0);
+        const onEdge = (cells) => cells.some((i) => { const c = i % nl; return c === 0 || c === nl - 1; });
+        // Kırıntılar taramadan ÖNCE silinir: aksi halde başka bir adanın köprüsü
+        // (özellikle tek hücrelik ince bağ) sonradan silinen kırıntının üzerinden geçer ve kopar.
+        const keep = islands.filter((cells) => {
+          if (areaL(cells) < minIsland && !onEdge(cells)) { clear(cells); stats.islandsRemoved++; return false; }
+          return true;
+        });
+        // 0-1 tarama (yalnızca bu panelin içinde); kenar sütunlarına yalnızca dolu
+        // hücreden girilir (oraya köprü boyanamaz).
+        const parent = new Int32Array(L).fill(-2);
+        const dist = new Int32Array(L).fill(0x3fffffff);
+        const dq = new Int32Array(L * 2 + 2);
+        let head = L, tail = L;
+        for (let i = 0; i < L; i++) if (anchoredL[i]) { parent[i] = -1; dist[i] = 0; dq[tail++] = i; }
+        while (head < tail) {
+          const i = dq[head++];
+          for (const j of nbs(i)) {
+            if (j < 0) continue;
+            const c = j % nl, sol = solid(j);
+            if (!sol && (c === 0 || c === nl - 1)) continue;
+            const w = sol ? 0 : 1;
+            if (dist[i] + w >= dist[j]) continue;
+            dist[j] = dist[i] + w;
+            parent[j] = i;
+            if (w === 0) dq[--head] = j; else dq[tail++] = j;
+          }
+        }
+        const paint = (li) => {
+          const r0 = (li / nl) | 0, c0 = li - r0 * nl;
+          let rA = r0, rB = r0;
+          while (rA > 0 && rowZ[r0] - rowZ[rA - 1] <= bridgeHalf) rA--;
+          while (rB < nr - 1 && rowZ[rB + 1] - rowZ[r0] <= bridgeHalf) rB++;
+          for (let r = rA; r <= rB; r++) {
+            const dzn = (rowZ[r] - rowZ[r0]) / bridgeHalf;
+            for (let dc = -bridgeC; dc <= bridgeC; dc++) {
+              const c = c0 + dc;
+              if (c < 1 || c > nl - 2) continue;
+              const dcn = dc / bridgeC;
+              if (dzn * dzn + dcn * dcn > 1.3) continue;
+              F[r * nc + gcol(c)] = 0;
+            }
+          }
+        };
+        keep.forEach((cells) => {
+          const area = areaL(cells);
+          // Köşe sütununa değen kırıntı komşu panelde gerçek desenin parçası
+          // olabilir (silinemez): bu panelde tek nokta genişliğinde bağla tutturulur.
+          let best = -1, bestD = Infinity;
+          for (const i of cells) if (dist[i] < bestD) { bestD = dist[i]; best = i; }
+          if (best < 0 || bestD >= 0x3fffffff) { clear(cells); stats.islandsRemoved++; return; }
+          const thin = area < minIsland;
+          for (let i = parent[best]; i >= 0 && parent[i] !== -1; i = parent[i]) {
+            const c = i % nl;
+            if (!thin) paint(i);
+            else if (c > 0 && c < nl - 1) F[((i / nl) | 0) * nc + gcol(c)] = 0;
+          }
+          stats.bridges++;
+        });
+      }
+    } else if (!opts.keepIslands) {
       const comps = components(F, nr, nc, (v) => v <= 0.5);
       const anchored = new Uint8Array(nr * nc);
       const islands = [];

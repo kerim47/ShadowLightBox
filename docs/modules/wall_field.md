@@ -27,6 +27,7 @@ WallField.smoothSampler(rgba, N, R, outside, sd?) // → sample(X, Y) over [-R, 
 | `minIsland` | cm² | default 0.005; smaller solid islands are deleted, bigger ones bridged |
 | `openTop` | bool | tube mount: `F = 1` above `zTop` |
 | `keepIslands` | bool | flat + 0.2 mm layer: skip bridging |
+| `panels` | bool | flat panels: islands are bridged inside each facet (no connection across a corner, which the cut would break); the shared corner column is never painted; corner specks get a one-cell link; sets `rimFloating` per panel |
 | `supportFree`, `overhangAngle`, `maxBridge`, `maxCantilever` | bool, °, mm, mm | upright-print roofs (60°, 12 mm, 2.5 mm defaults) |
 
 Returns `{ F, nr, nc, colS, rowZ, vertexCol, colEdge, periodic: true, shape, d, cz, margin, stats }`.

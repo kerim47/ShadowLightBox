@@ -78,6 +78,27 @@ function handle(channel, fn) {
   });
 }
 
+// Arayüz dili: renderer açılışta bildirir (I18n). Ana süreçteki pencere metinleri.
+let appLang = 'tr';
+const MAIN_TEXT = {
+  tr: {
+    buttons: ['Kaydet ve çık', 'Kaydetmeden çık', 'İptal'],
+    title: 'Kaydedilmemiş değişiklikler',
+    message: 'Tasarımda kaydedilmemiş değişiklikler var.',
+    detail: 'Kaydetmeden çıkarsanız son değişiklikler kaybolur.',
+  },
+  en: {
+    buttons: ['Save and quit', 'Quit without saving', 'Cancel'],
+    title: 'Unsaved changes',
+    message: 'The design has unsaved changes.',
+    detail: 'If you quit without saving, the latest changes are lost.',
+  },
+};
+ipcMain.on('app:lang', (e, lang) => {
+  try { assertTrustedSender(e); } catch (_) { return; }
+  if (Object.prototype.hasOwnProperty.call(MAIN_TEXT, lang)) appLang = lang;
+});
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -98,15 +119,16 @@ function createWindow() {
   // Kaydedilmemiş değişiklik varken sayfa kapanmayı engeller (beforeunload);
   // Electron bunu sessizce yapar, kullanıcıya burada sorulur.
   mainWindow.webContents.on('will-prevent-unload', (event) => {
+    const tx = MAIN_TEXT[appLang] || MAIN_TEXT.tr;
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'question',
-      buttons: ['Kaydet ve çık', 'Kaydetmeden çık', 'İptal'],
+      buttons: tx.buttons,
       defaultId: 0,
       cancelId: 2,
       noLink: true,
-      title: 'Kaydedilmemiş değişiklikler',
-      message: 'Tasarımda kaydedilmemiş değişiklikler var.',
-      detail: 'Kaydetmeden çıkarsanız son değişiklikler kaybolur.',
+      title: tx.title,
+      message: tx.message,
+      detail: tx.detail,
     });
     if (choice === 1) event.preventDefault();                       // engeli yok say, kapat
     else if (choice === 0) mainWindow.webContents.send('app:save-and-close');

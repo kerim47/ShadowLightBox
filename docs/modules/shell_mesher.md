@@ -25,24 +25,26 @@ ShellMesher.bbox(meshes)               // → { minX, minY, minZ, maxX, maxY, ma
 | `keyhole` | true | search a keyhole position top-down that clears the wall and the tube ring |
 | `tubeOD`, `holderHeight` | 40, 10 | tube mount |
 | `chamfer`, `supportLayer` | true, false | flat panels: 45°-style mitred ends; 0.2 mm layer under each panel |
+| `labels` | true | flat panels: raised 7-segment assembly number (0.6 mm) on each panel's outer face, placed in a fully solid window of the field (bottom first, centre outward), and the same number on the plate top beside each edge (avoids keyhole / tube ring). Meshes `panel-N-label`, `base-plate-label-N`. |
+| `merge` | true | false → no solid-region merge (tests compare volume against it) |
 | `bed` | 256 | `{ x, y, z }` or a number (square) |
 | `assembled` | false | true → lamp coordinates for the room preview (always the one-piece shell) and adds `tube-glass` (`previewOnly`) |
 
-`info = { triangles, lightZcm, tubeLengthMM, mount, bodyMM: { w, h, d } }`.
+`info = { triangles, lightZcm, tubeLengthMM, mount, beds, bedPitchMM, fitsBed, bodyMM: { w, h, d } }`.
 
 ### Part names (contract — see `DESIGN_RULES.md` §2.3)
 
-`shell` | `panel-N` (+ `panel-N-layer`), `base-plate`, tube mount: `tube-holder`, `tube-cap`, `tube-cap-plug`, `tube-cap-post`, `tube-cap-cup`, `tube-glass` (preview); cap mount: `cap`, `cap-lip`, `led-tube`, `led-cup`.
+`shell` | `panel-N` (+ `panel-N-layer`, `panel-N-label`), `base-plate-label-N` (flat), `base-plate`, tube mount: `tube-holder`, `tube-cap`, `tube-cap-plug`, `tube-cap-post`, `tube-cap-cup`, `tube-glass` (preview); cap mount: `cap`, `cap-lip`, `led-tube`, `led-cup`.
 
 ### Layouts
 
 - Assembled (room view): lamp coordinates.
 - One-piece print: body + plate at the origin, cap parts flipped (`capTop − z`) and placed beside the body.
-- Flat print: each panel group shelf-packed within the bed with an 8 mm gap.
+- Flat print: panel groups, plate and cap shelf-packed (largest first, rotated 90° when it fits better, 8 mm gap). Bed 1 is centred on the lamp axis like the preview bed; pieces that don't fit go to further beds laid out along +X (`info.beds`, `info.bedPitchMM` = bed X + 20 mm); the bed view draws one plate per bed. `info.fitsBed` reports whether every piece fits a bed.
 
 ### `validatePrint`
 
-Welds coincident vertices per mesh, splits into connected components, marks a component grounded if its lowest point is at `z ≈ 0` with ≥ 4 mm² of downward-facing contact, then propagates "grounded" to any component whose bounding box touches a grounded one (slicers merge overlapping solids). `main.js` shows floating parts in red on the bed.
+Flat panels: a component of a `panel-N` mesh other than its main body (largest bed contact) is `loose` (lies on the bed but falls out of the panel) unless `panel-N-layer` exists; `main.js` reports it separately. Welds coincident vertices per mesh, splits into connected components, marks a component grounded if its lowest point is at `z ≈ 0` with ≥ 4 mm² of downward-facing contact, then propagates "grounded" to any component whose bounding box touches a grounded one (slicers merge overlapping solids). `main.js` shows floating parts in red on the bed.
 
 ## Watertightness rules
 

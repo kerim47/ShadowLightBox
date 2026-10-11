@@ -10,6 +10,8 @@
  * main process (window.appAPI.removeBackground). Returns a soft alpha matte
  * that goes through the same cleanup.
  *
+ * Direct mode: a ready black-and-white image is only thresholded (no cleanup).
+ *
  * Masks are { w, h, data: Uint8Array } with 1 = subject (casts shadow).
  */
 (function (global) {
@@ -296,6 +298,37 @@
   }
 
   /**
+   * Hazır siyah-beyaz görsel: yalnızca eşikleme, temizleme / yumuşatma / konu
+   * arama yok. Koyu = gölge (1), açık ve saydam = ışık (0).
+   * opts: { sensitivity -1..1 (eşiği kaydırır; + daha çok gölge), invert }
+   */
+  function direct(img, opts) {
+    const o = opts || {};
+    const { ctx, w, h } = imageToCanvas(img, WORK_MAX);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    const thr = 128 + 100 * (o.sensitivity || 0);
+    const data = new Uint8Array(w * h);
+    for (let i = 0; i < data.length; i++) {
+      const lum = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+      data[i] = (lum < thr) !== !!o.invert ? 1 : 0;
+    }
+    return { w, h, data };
+  }
+
+  /** Görsel zaten siyah-beyaz mı (piksellerin ≥ %97'si çok koyu ya da çok açık)? */
+  function isBlackWhite(img) {
+    const { ctx, w, h } = imageToCanvas(img, 256);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    let bw = 0;
+    for (let i = 0; i < w * h; i++) {
+      const lum = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+      const sat = Math.max(px[i * 4], px[i * 4 + 1], px[i * 4 + 2]) - Math.min(px[i * 4], px[i * 4 + 1], px[i * 4 + 2]);
+      if ((lum < 50 || lum > 205) && sat < 40) bw++;
+    }
+    return bw >= 0.97 * w * h;
+  }
+
+  /**
    * Detaylı portre (şablon / stencil): konunun içindeki koyu bölgeler (saç, kaş,
    * göz, sakal, koyu kıyafet) gölge, açık bölgeler (ten, gömlek) ışık olur.
    * subject: konu maskesi (AI veya hızlı yöntem), aynı çalışma çözünürlüğünde.
@@ -506,5 +539,5 @@
     return { ox, oy, dw, dh };
   }
 
-  global.Silhouette = { quick, portrait, aiAvailable, aiMatte, fromMatte, maskToImage, drawPreview, cropCanvas, applyHints, addRegions };
+  global.Silhouette = { quick, direct, isBlackWhite, portrait, aiAvailable, aiMatte, fromMatte, maskToImage, drawPreview, cropCanvas, applyHints, addRegions };
 })(window);

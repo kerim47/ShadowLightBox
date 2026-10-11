@@ -40,7 +40,7 @@ Read this when you are about to change code. `AGENTS.md` has the short list of i
 ### 2.1 Units and coordinates
 
 - **cm** for lamp geometry, UI geometry fields, the target frame and everything in `shapes`, `projection`, `wall_field`, `designer`, `geometry` scene units.
-- **mm** for meshes, STL/3MF/OBJ/PLY/FBX output, and print settings in the UI (thickness, plate, seat, bed). `ShellMesher` converts with `MM = 10`. GLB is the exception: metres, Y-up (glTF spec).
+- **mm** for meshes, STL/3MF/OBJ/PLY/FBX output, print settings in the UI (thickness, plate, seat, bed) and the body size boxes `s-W` / `s-H` / `s-d` (converted to cm in `designer.readParams()`; design files mark this with `sizeUnit: 'mm'`). `ShellMesher` converts with `MM = 10`. GLB is the exception: metres, Y-up (glTF spec).
 - Lamp frame: room wall is `z = 0`, body in `z ∈ [0, d]`, LED at `(0, 0, cz)`, `+Y` up on the wall. The outline polygon is the wall's mid-surface at `z = 0`.
 - Target image: `N = 2048` square covering `[-R, R]²` cm. Row 0 is the top (`+Y`). Pixel → cm: `X = ((px + 0.5)/N − 0.5)·2R`, `Y = (0.5 − (py + 0.5)/N)·2R`. Use these exact expressions; off-by-half-pixel errors show up as shifted shadows.
 - Name variables with their unit when it is not cm (`czmm`, `bedMM`, `minLineMm`, `cellMm`).
@@ -93,7 +93,7 @@ Id prefixes say which panel it belongs to: `d-` shadow, `s-` body, `g-` print/su
 
 ## 4. UI rules
 
-- **All user-facing text is Turkish**: labels, notes, status messages, warnings, alerts, file names we suggest, menu items. Code identifiers and log messages for developers are English. Comments follow the language of the surrounding file.
+- **All user-facing text is written in Turkish** (source language and default): labels, notes, status messages, warnings, alerts, file names we suggest, menu items. **Every new Turkish UI string needs its English in `renderer/src/i18n_en.js`** (key = the Turkish text; templated messages use `{0}` / `{name}` placeholders, e.g. `'Panel {0}: …'`). DOM text is translated automatically by `I18n.watch` (exact match, then placeholder patterns, then per sentence / `·` segment); text that never reaches the DOM (canvas sprites, `alert`, `confirm`, `document.title` builders that join lists) must call `I18n.t()`. Strings built by joining translated pieces (lists, `a + ' (' + b + ')'`) should translate the pieces at the source. Code identifiers and log messages for developers are English. Comments follow the language of the surrounding file.
 - Write status messages as: what happened, then what to do. Warnings start with `⚠` and are passed as the `warnings` array of `showStatus()` so they get logged in **Mesajlar**.
 - Never open a native file dialog. Opening goes through `<input type="file">`, which `filepicker.js` intercepts on desktop. Saving goes through `downloadBlob()` → `appAPI.saveFile` (Downloads, no dialog). GTK dialogs crash Electron on Linux.
 - Modals are `.modal` elements with `hidden`. `menubar.js` blocks shortcuts while any `.modal:not([hidden])` exists, so a new modal gets that for free. Handle `Escape` (close) and `Enter` (primary action) inside the modal and stop propagation.
@@ -152,7 +152,7 @@ Id prefixes say which panel it belongs to: `d-` shadow, `s-` body, `g-` print/su
 1. Which layer does the change belong to (§1)? Is the core still DOM-free?
 2. Units and conventions at every boundary (§2)?
 3. New setting wired by its effect (§3) and safe for old design files (§2.4)?
-4. Turkish UI text; no native dialogs; modal keys handled (§4)?
+4. Turkish UI text with its English in `i18n_en.js`; no native dialogs; modal keys handled (§4)?
 5. Previews still sample the final field; nothing floats (§5)?
 6. No heavy work on look-only changes; caches keyed (§6)?
 7. `npm test` green; new core behaviour has a check (§9)?

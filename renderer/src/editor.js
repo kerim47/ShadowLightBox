@@ -76,7 +76,7 @@
     // Araç çubuğu
     const toolBtns = {};
     TOOLS.forEach((t) => {
-      const b = el('button', { class: 'ed-tool', title: `${t.label} (${t.key})`, onclick: () => setTool(t.id) }, t.icon);
+      const b = el('button', { class: 'ed-tool', title: `${I18n.t(t.label)} (${t.key})`, onclick: () => setTool(t.id) }, t.icon);
       toolBtns[t.id] = b;
       rail.appendChild(b);
     });

@@ -107,7 +107,7 @@
 
   function labelText(el) {
     const c = el.cloneNode(true);
-    c.querySelectorAll('.help-dot, b, small, input').forEach((n) => n.remove());
+    c.querySelectorAll('.help-dot, .reset-btn, b, small, input').forEach((n) => n.remove());
     return c.textContent.replace(/\s+/g, ' ').trim();
   }
 

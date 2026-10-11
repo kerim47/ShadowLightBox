@@ -2,6 +2,10 @@
 
 > **Türkçe özet:** Menü çubuğu, Inspector (sağ sütun), "?" yardım ikonları, uygulama içi dosya seçici, tasarım depolama ve karşılaştırma modeli okuyucu.
 
+## `i18n.js` — `I18n` (+ `i18n_en.js`)
+
+UI language. Turkish is the source and default; `i18n_en.js` maps Turkish text → English. API: `t(src, vars)` (code-side lookup, `{0}` / `{name}` filled from `vars`), `translateText(text)` (exact → strong placeholder patterns → sentence / `·` split → weak patterns like `{0} ({1})`; captured values are translated recursively; `null` if nothing matched), `watch(root)` (English only: translates text nodes and `title` / `placeholder` / `aria-label` / `data-help*` now and on every mutation), `setLang(id)`, `lang()`, `LANGS`. Loaded before every other renderer script. `main.js` adds View → Dil / Language: it stashes the current design (payload, name, dirty flag) in `sessionStorage`, saves the language and reloads; `restoreAfterLanguageSwitch()` puts the design back. The main process gets the language over `app:lang` (preload `setLang`) for its unsaved-changes dialog.
+
 ## `menubar.js` — `MenuBar`
 
 ```js

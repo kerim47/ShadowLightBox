@@ -94,7 +94,7 @@
         del.title = 'Sil';
         del.addEventListener('click', async (e) => {
           e.stopPropagation();
-          if (!confirm(`"${d.name}" silinsin mi?`)) return;
+          if (!confirm(I18n.t('"{0}" silinsin mi?', [d.name]))) return;
           await hooks.deleteDesign(d.name);
           refreshFiles();
         });
@@ -187,7 +187,7 @@
         const o = Array.from(inp.options).find((x) => x.value === d);
         return o ? o.textContent.split(' (')[0].split(' — ')[0] : d;
       }
-      return inp.type === 'number' ? (+d).toLocaleString('tr-TR') : d;
+      return inp.type === 'number' ? (+d).toLocaleString(I18n.lang() === 'tr' ? 'tr-TR' : 'en-US') : d;
     }
     function resetInputs(h, inputs) {
       const list = inputs.filter(isDirty);
@@ -280,7 +280,7 @@
         reset: opts && opts.reset,
       };
       h.resetAll.addEventListener('click', () => {
-        if (!confirm('Bu paneldeki bütün ayarlar varsayılana dönsün mü? (Ctrl+Z ile geri alabilirsiniz)')) return;
+        if (!confirm(I18n.t('Bu paneldeki bütün ayarlar varsayılana dönsün mü? (Ctrl+Z ile geri alabilirsiniz)'))) return;
         resetInputs(h, Array.from(h.props.querySelectorAll('[data-default]')));
       });
       decorate(h);

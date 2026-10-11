@@ -6,6 +6,7 @@ Each file is an IIFE that defines **one global**; no bundler, no ES modules. Loa
 
 | File | Global | Layer | Read before changing |
 |---|---|---|---|
+| `i18n.js` + `i18n_en.js` | `I18n` | core (DOM optional) | `docs/modules/ui-services.md` |
 | `shapes.js` | `Shapes` | core | `docs/modules/shapes-projection.md` |
 | `projection.js` | `Projection` | core | `docs/modules/shapes-projection.md` |
 | `wall_field.js` | `WallField` | core | `docs/modules/wall_field.md` |
@@ -32,5 +33,5 @@ Each file is an IIFE that defines **one global**; no bundler, no ES modules. Loa
 - Field values: `> 0.5` = lit = hole. Target: white = lit, 2048² over `[-R, R]²` cm. Meshes in mm, everything else in cm.
 - Every preview samples the **final field** (`WallField.sampleField`), never the raw target.
 - New setting → `SCHEMA` in `main.js`, then wire it by effect (field / mesh / look) — `docs/DESIGN_RULES.md` §3.
-- UI text is Turkish; never open a native file dialog.
+- UI text is written in Turkish; add its English to `i18n_en.js` (non-DOM text: `I18n.t()`). Never open a native file dialog.
 - Data flow in one line: target (designer) → `WallField.compute` → `ShellMesher.buildLamp` → `Geometry.buildScene` / `ModelExport.exportMeshes`.

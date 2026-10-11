@@ -10,6 +10,8 @@ Masks are `{ w, h, data: Uint8Array }` with **1 = subject = shadow**, at working
 
 ```js
 Silhouette.quick(img, { sensitivity, invert, fillGaps, smooth })          // model-free
+Silhouette.direct(img, { sensitivity, invert })   // ready B/W image: threshold only, no cleanup
+Silhouette.isBlackWhite(img)                      // ≥ 97 % near-black/near-white pixels
 Silhouette.aiAvailable()                                                   // desktop only
 await Silhouette.aiMatte(img, 'isnet-general-use' | 'u2netp', onProgress)  // → { w, h, alpha: Float32Array }
 Silhouette.fromMatte(matte, { sensitivity, invert, fillGaps, smooth })
@@ -25,7 +27,7 @@ await Silhouette.maskToImage(mask)              // Image: subject black, backgro
 
 ## Callers
 
-- Photo modal in `main.js` (`runSilhouette`): method `portrait` (default), `ai`, `quick`; caches the AI matte and the subject mask per photo.
+- Photo modal in `main.js` (`runSilhouette`): method `portrait` (default), `ai`, `quick`, `direct` (auto-selected when the loaded image is already black-and-white); caches the AI matte and the subject mask per photo.
 - `converter.js` stage A (`subject` / `portrait` modes).
 - `editor.js` "Siluete çevir" on image layers.
 
